@@ -5,7 +5,9 @@ __pycache__/
 .env
 uploads/
 generated_images/
+backend/generated_ppts/
 .DS_Store
+
 
 
 
