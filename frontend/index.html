@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Intelligence Suite | Corporate Edition</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Theme Toggle Button -->
+        <button class="theme-toggle" id="themeToggle">
+            <i class="fas fa-moon"></i>
+            <span>Dark</span>
+        </button>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header Section -->
+            <div class="header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>AI RESUME INTELLIGENCE</h1>
+                        <p>Enterprise Suite</p>
+                    </div>
+                </div>
+                
+                <div class="title-container">
+                    <h2 class="main-title">Transform Resumes into<br><span class="gradient-text">Strategic Intelligence</span></h2>
+                    <div class="title-underline"></div>
+                </div>
+            </div>
+
+            <!-- Description Section -->
+            <div class="description-section">
+                <div class="description-card">
+                    <i class="fas fa-robot"></i>
+                    <div class="description-text">
+                        <h3>Next-Gen Resume Parsing Technology</h3>
+                        <p>Leverage advanced LLM-powered AI to extract, analyze, and visualize professional profiles instantly. Generate corporate-ready presentations with intelligent scoring and actionable insights.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-container">
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="resumeFile" accept=".pdf,.docx" hidden>
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3>Upload Professional Resume</h3>
+                        <p>Drag & drop or click to browse</p>
+                        <div class="upload-hint">
+                            <i class="fas fa-file-alt"></i>
+                            <span>Supports PDF, DOCX (Max 5MB)</span>
+                        </div>
+                        <button class="upload-btn" id="uploadBtn">
+                            <i class="fas fa-upload"></i>
+                            <span>Choose File</span>
+                        </button>
+                    </div>
+                    
+                    <div class="upload-benefits">
+                        <div class="benefit-item">
+                            <i class="fas fa-chart-line"></i>
+                            <div>
+                                <strong>AI-Powered Analysis</strong>
+                                <p>Deep learning resume parsing</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <i class="fas fa-file-image"></i>
+                            <div>
+                                <strong>Professional PNG Export</strong>
+                                <p>High-quality image ready</p>
+                            </div>
+                        </div>
+                        <div class="benefit-item">
+                            <i class="fas fa-chart-simple"></i>
+                            <div>
+                                <strong>Smart Scoring</strong>
+                                <p>0-100 fit score with insights</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                <div class="loading-content">
+                    <div class="loading-spinner">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="loading-text">
+                        <h3>Analyzing Resume Intelligence</h3>
+                        <p>Extracting skills, experiences, and generating insights...</p>
+                    </div>
+                    <div class="loading-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <span class="progress-text">Processing...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <div class="results-container">
+                    <!-- Close Button -->
+                    <button class="close-results" id="closeResults">
+                        <i class="fas fa-times"></i>
+                    </button>
+
+                    <!-- Left Column - Analysis Dashboard -->
+                    <div class="analysis-column">
+                        <div class="analysis-header">
+                            <i class="fas fa-chart-pie"></i>
+                            <h3>Intelligence Dashboard</h3>
+                        </div>
+
+                        <!-- Fit Score Card -->
+                        <div class="score-card" id="scoreCard">
+                            <div class="score-circle" id="scoreCircle">
+                                <div class="score-value">0</div>
+                                <div class="score-label">Fit Score</div>
+                            </div>
+                            <div class="score-status" id="scoreStatus"></div>
+                            <div class="score-details">
+                                <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths</p>
+                                <p><i class="fas fa-chart-line"></i> <span id="expYears">0</span>+ Years Experience</p>
+                            </div>
+                        </div>
+
+                        <!-- Skills Analysis -->
+                        <div class="insight-card">
+                            <div class="card-header">
+                                <i class="fas fa-code"></i>
+                                <h4>Core Competencies</h4>
+                            </div>
+                            <div class="skills-container" id="skillsList">
+                                <!-- Dynamic skills will appear here -->
+                            </div>
+                        </div>
+
+                        <!-- Strengths & Improvements -->
+                        <div class="insight-card">
+                            <div class="card-header">
+                                <i class="fas fa-star"></i>
+                                <h4>Key Strengths</h4>
+                            </div>
+                            <ul class="strengths-list" id="strengthsList">
+                                <!-- Dynamic strengths -->
+                            </ul>
+                        </div>
+
+                        <div class="insight-card">
+                            <div class="card-header">
+                                <i class="fas fa-lightbulb"></i>
+                                <h4>Growth Areas</h4>
+                            </div>
+                            <ul class="improvements-list" id="improvementsList">
+                                <!-- Dynamic improvements -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Resume Data & Actions -->
+                    <div class="data-column">
+                        <div class="action-header">
+                            <h3><i class="fas fa-file-alt"></i> Parsed Resume Data</h3>
+                            <button class="download-ppt-btn" id="downloadBtn">
+                                <i class="fas fa-download"></i>
+                                <span>Download PNG Report</span>
+                            </button>
+                        </div>
+
+                        <!-- Candidate Info -->
+                        <div class="candidate-card">
+                            <div class="candidate-avatar" id="candidateAvatar">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="candidate-info">
+                                <h2 id="candidateName">John Doe</h2>
+                                <p id="candidateRole">Senior Professional</p>
+                                <div class="candidate-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> <span id="candidateLocation">Location</span></span>
+                                    <span><i class="fas fa-envelope"></i> <span id="candidateEmail">Email</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Professional Summary -->
+                        <div class="data-card">
+                            <div class="card-header">
+                                <i class="fas fa-quote-left"></i>
+                                <h4>Professional Summary</h4>
+                            </div>
+                            <p id="professionalSummary" class="summary-text">Loading...</p>
+                        </div>
+
+                        <!-- Work Experience -->
+                        <div class="data-card">
+                            <div class="card-header">
+                                <i class="fas fa-briefcase"></i>
+                                <h4>Recent Experience</h4>
+                            </div>
+                            <div id="experienceList" class="experience-list">
+                                <!-- Dynamic experience -->
+                            </div>
+                        </div>
+
+                        <!-- Certifications -->
+                        <div class="data-card" id="certificationsCard" style="display: none;">
+                            <div class="card-header">
+                                <i class="fas fa-certificate"></i>
+                                <h4>Certifications</h4>
+                            </div>
+                            <div id="certificationsList" class="certifications-list">
+                                <!-- Dynamic certifications -->
+                            </div>
+                        </div>
+
+                        <!-- Education -->
+                        <div class="data-card">
+                            <div class="card-header">
+                                <i class="fas fa-graduation-cap"></i>
+                                <h4>Education</h4>
+                            </div>
+                            <div id="educationInfo" class="education-info">
+                                <!-- Dynamic education -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gap Analysis Card - Full Width -->
+                    <div class="gap-analysis-card" id="gapAnalysisCard" style="display: none;">
+                        <div class="card-header">
+                            <i class="fas fa-chart-line"></i>
+                            <h4>Career Gap Analysis</h4>
+                        </div>
+                        
+                        <!-- Current Status -->
+                        <div class="gap-status-row">
+                            <span class="gap-label">Current Status:</span>
+                            <span class="gap-value" id="gapCurrentStatus">--</span>
+                        </div>
+                        
+                        <!-- Education to Employment Gap -->
+                        <div class="gap-row" id="eduGapRow" style="display: none;">
+                            <div class="gap-label">Education Gap:</div>
+                            <div class="gap-value" id="eduGapText"></div>
+                        </div>
+                        
+                        <!-- Employment Gaps -->
+                        <div class="gap-row" id="empGapsRow" style="display: none;">
+                            <div class="gap-label">Employment Gaps:</div>
+                            <div class="gap-value" id="empGapsList"></div>
+                        </div>
+                        
+                        <!-- Current Employment Gap -->
+                        <div class="gap-row" id="currentGapRow" style="display: none;">
+                            <div class="gap-label">Current Gap:</div>
+                            <div class="gap-value" id="currentGapText"></div>
+                        </div>
+                        
+                        <!-- Divider -->
+                        <div class="gap-divider"></div>
+                        
+                        <!-- Total Gap & Risk Indicator -->
+                        <div class="gap-total-row">
+                            <span class="gap-label">Total Career Gap:</span>
+                            <span class="gap-value" id="totalGap">--</span>
+                        </div>
+                        
+                        <div class="gap-risk-row">
+                            <span class="gap-label">Risk Indicator:</span>
+                            <span class="gap-risk-value" id="riskIndicator">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
