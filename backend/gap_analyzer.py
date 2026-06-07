@@ -1,219 +1,208 @@
 import re
 from datetime import datetime
-from dateutil import parser
-import calendar
 
 class GapAnalyzer:
     """Career Gap Detection & Employment Continuity Analysis"""
     
     def __init__(self):
-        self.excluded_roles = [
-            'freelance', 'freelancing', 'self-employed', 'self employment',
-            'consultant', 'consulting', 'startup founder', 'founder',
-            'entrepreneur', 'contractor', 'intern', 'internship'
+        self.career_break_keywords = [
+            'career break', 'career gap', 'sabbatical', 'personal reasons',
+            'family commitment', 'health break', 'parental leave', 'career hiatus',
+            'time off', 'employment gap', 'break from work', 'upskilling break'
         ]
     
-    def parse_date(self, date_str):
-        """Parse various date formats to datetime"""
-        if not date_str or date_str == 'Present':
-            return None
-        
-        date_str = str(date_str).strip()
-        
-        # Handle year only (YYYY)
-        if re.match(r'^\d{4}$', date_str):
-            return datetime(int(date_str), 1, 1)
-        
-        # Handle MM/YYYY
-        if re.match(r'^\d{1,2}/\d{4}$', date_str):
-            month, year = date_str.split('/')
-            return datetime(int(year), int(month), 1)
-        
-        # Handle Month YYYY
-        try:
-            return parser.parse(date_str, fuzzy=True)
-        except:
-            return None
+    def extract_years_from_text(self, text):
+        """Extract all years from text"""
+        if not text:
+            return []
+        years = re.findall(r'\b(19[0-9]{2}|20[0-2][0-9]|2030)\b', str(text))
+        return [int(y) for y in years]
     
-    def format_date_for_display(self, date_obj):
-        """Format datetime object for display"""
-        if not date_obj:
-            return "Present"
-        return date_obj.strftime("%Y")
-    
-    def calculate_gap_years(self, end_date, start_date):
-        """Calculate gap in years between two dates"""
-        if not end_date or not start_date:
-            return None
+    def parse_date_range(self, text):
+        """Extract start and end years from a date range string"""
+        if not text:
+            return None, None
         
-        gap_days = (start_date - end_date).days
-        if gap_days < 0:  # Overlapping dates
-            return 0
+        text = str(text)
         
-        gap_years = gap_days / 365.25
-        return round(gap_years, 1)
-    
-    def is_excluded_role(self, role):
-        """Check if role should be excluded from gap analysis"""
-        role_lower = role.lower()
-        return any(excluded in role_lower for excluded in self.excluded_roles)
-    
-    def extract_dates_from_text(self, text, item_type="experience"):
-        """Extract dates from education or experience text"""
-        date_patterns = [
-            (r'(\d{4})\s*[-–—]\s*(\d{4}|Present)', 'year-year'),
-            (r'(\d{1,2}/\d{4})\s*[-–—]\s*(\d{1,2}/\d{4}|Present)', 'monthyear-monthyear'),
-            (r'([A-Za-z]+\s+\d{4})\s*[-–—]\s*([A-Za-z]+\s+\d{4}|Present)', 'month-year-month-year'),
-            (r'(\d{4})\s*[-–—]\s*(Present)', 'year-present'),
-            (r'(\d{1,2}/\d{4})\s*[-–—]\s*(Present)', 'monthyear-present'),
-        ]
+        # Pattern: YYYY-YYYY or YYYY - YYYY or YYYY–YYYY
+        match = re.search(r'(\d{4})\s*[-–—]\s*(\d{4})', text)
+        if match:
+            return int(match.group(1)), int(match.group(2))
         
-        for pattern, date_type in date_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                start_str, end_str = match.groups()
-                start_date = self.parse_date(start_str)
-                end_date = self.parse_date(end_str) if end_str != 'Present' else None
-                return start_date, end_date
+        # Pattern: YYYY-Present
+        match = re.search(r'(\d{4})\s*[-–—]\s*[Pp]resent', text)
+        if match:
+            return int(match.group(1)), datetime.now().year
+        
+        # Pattern: Single year
+        match = re.search(r'(\d{4})', text)
+        if match:
+            year = int(match.group(1))
+            return year, year
         
         return None, None
     
-    def analyze_education_to_employment_gap(self, education_list, experience_list):
-        """Detect gap between education completion and first job"""
-        if not education_list or not experience_list:
-            return None
+    def is_career_break(self, text):
+        """Check if text describes a career break"""
+        if not text:
+            return False
+        text_lower = text.lower()
+        return any(keyword in text_lower for keyword in self.career_break_keywords)
+    
+    def extract_education_entries(self, education_raw):
+        """Extract education entries with years"""
+        education_entries = []
         
-        # Get latest education end date
-        latest_education_end = None
-        latest_education_name = None
+        if not education_raw:
+            return education_entries
         
-        for edu in education_list:
-            start_date, end_date = self.extract_dates_from_text(edu, "education")
-            if end_date and (not latest_education_end or end_date > latest_education_end):
-                latest_education_end = end_date
-                # Extract degree name
-                degree_match = re.search(r'([A-Za-z\s]+(?:Degree|Bachelor|Master|PhD|MBA))', edu, re.IGNORECASE)
-                latest_education_name = degree_match.group(1) if degree_match else "Education"
-        
-        # Get first job start date (excluding internships)
-        first_job_start = None
-        first_job_name = None
-        
-        for exp in experience_list:
-            # Skip if it's an internship
-            if 'intern' in exp.lower():
+        for edu in education_raw:
+            if not edu:
                 continue
             
-            start_date, end_date = self.extract_dates_from_text(exp, "experience")
-            if start_date and (not first_job_start or start_date < first_job_start):
-                # Check if role is excluded
-                if not self.is_excluded_role(exp):
-                    first_job_start = start_date
-                    # Extract company/role
-                    company_match = re.search(r'(?:at|@|-)\s*([A-Za-z\s]+)', exp, re.IGNORECASE)
-                    first_job_name = company_match.group(1) if company_match else "First Job"
+            start, end = self.parse_date_range(edu)
+            if start:
+                education_entries.append({
+                    'text': edu,
+                    'start_year': start,
+                    'end_year': end if end else start,
+                })
         
-        if latest_education_end and first_job_start:
-            gap_years = self.calculate_gap_years(latest_education_end, first_job_start)
-            if gap_years and gap_years > 0:
+        return education_entries
+    
+    def extract_experience_entries(self, experience_raw):
+        """Extract experience entries with years and detect career breaks"""
+        experience_entries = []
+        
+        if not experience_raw:
+            return experience_entries
+        
+        for exp in experience_raw:
+            if not exp:
+                continue
+            
+            start, end = self.parse_date_range(exp)
+            is_break = self.is_career_break(exp)
+            
+            if start:
+                experience_entries.append({
+                    'text': exp,
+                    'start_year': start,
+                    'end_year': end if end else start,
+                    'is_career_break': is_break,
+                    'is_present': 'present' in str(exp).lower()
+                })
+        
+        # Sort by start year
+        experience_entries.sort(key=lambda x: x['start_year'])
+        
+        return experience_entries
+    
+    def analyze_education_to_employment_gap(self, education_entries, experience_entries):
+        """Detect gap between education completion and first job"""
+        if not education_entries or not experience_entries:
+            return None
+        
+        # Get latest education end year
+        latest_edu = max(education_entries, key=lambda x: x['end_year'])
+        edu_end_year = latest_edu['end_year']
+        
+        # Get first non-career-break job
+        first_job = None
+        for exp in experience_entries:
+            if not exp.get('is_career_break'):
+                first_job = exp
+                break
+        
+        if first_job:
+            job_start_year = first_job['start_year']
+            
+            if job_start_year > edu_end_year:
+                gap_years = job_start_year - edu_end_year
                 return {
                     'type': 'Education-to-Employment Gap',
-                    'from_date': self.format_date_for_display(latest_education_end),
-                    'to_date': self.format_date_for_display(first_job_start),
+                    'from_year': edu_end_year,
+                    'to_year': job_start_year,
                     'duration_years': gap_years,
-                    'from_name': latest_education_name,
-                    'to_name': first_job_name,
-                    'description': f"{latest_education_name} ({self.format_date_for_display(latest_education_end)}) → First Job ({self.format_date_for_display(first_job_start)})"
+                    'description': f"Graduation ({edu_end_year}) → First Job ({job_start_year})"
                 }
+        
         return None
     
-    def analyze_employment_gaps(self, experience_list):
+    def analyze_employment_gaps(self, experience_entries):
         """Detect gaps between consecutive employments"""
         gaps = []
         
-        # Sort experiences by start date
-        dated_experiences = []
-        for exp in experience_list:
-            if self.is_excluded_role(exp):
-                continue
-            
-            start_date, end_date = self.extract_dates_from_text(exp, "experience")
-            if start_date:
-                dated_experiences.append({
-                    'text': exp,
-                    'start': start_date,
-                    'end': end_date or datetime.now()
-                })
+        # Filter out career breaks for main gap analysis
+        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break')]
         
-        # Sort by start date
-        dated_experiences.sort(key=lambda x: x['start'])
-        
-        # Find gaps between consecutive experiences
-        for i in range(len(dated_experiences) - 1):
-            current_end = dated_experiences[i]['end']
-            next_start = dated_experiences[i + 1]['start']
+        for i in range(len(regular_jobs) - 1):
+            current_end = regular_jobs[i]['end_year']
+            next_start = regular_jobs[i + 1]['start_year']
             
-            if current_end and next_start:
-                gap_years = self.calculate_gap_years(current_end, next_start)
-                if gap_years and gap_years > 0.1:  # More than ~1 month
-                    # Extract company names
-                    company1_match = re.search(r'(?:at|@|-)\s*([A-Za-z\s]+)', dated_experiences[i]['text'], re.IGNORECASE)
-                    company2_match = re.search(r'(?:at|@|-)\s*([A-Za-z\s]+)', dated_experiences[i+1]['text'], re.IGNORECASE)
-                    
-                    company1 = company1_match.group(1).strip() if company1_match else "Previous Role"
-                    company2 = company2_match.group(1).strip() if company2_match else "Next Role"
-                    
+            if current_end and next_start and next_start > current_end:
+                gap_years = next_start - current_end
+                if gap_years >= 1:
                     gaps.append({
                         'type': 'Employment Gap',
-                        'from_date': self.format_date_for_display(current_end),
-                        'to_date': self.format_date_for_display(next_start),
+                        'from_year': current_end,
+                        'to_year': next_start,
                         'duration_years': gap_years,
-                        'from_name': company1,
-                        'to_name': company2,
-                        'description': f"{company1} → {company2}"
+                        'description': f"Job {i+1} → Job {i+2}"
                     })
         
         return gaps
     
-    def analyze_current_employment_gap(self, experience_list):
-        """Detect if candidate is currently unemployed"""
-        if not experience_list:
-            return None
+    def analyze_career_breaks(self, experience_entries):
+        """Extract career breaks as gaps"""
+        career_breaks = []
         
-        # Get latest experience
-        latest_exp = None
-        latest_end_date = None
-        
-        for exp in experience_list:
-            if self.is_excluded_role(exp):
-                continue
-            
-            start_date, end_date = self.extract_dates_from_text(exp, "experience")
-            if not end_date:  # Present
-                return {
-                    'status': 'Currently Employed',
-                    'gap': None
-                }
-            
-            if end_date and (not latest_end_date or end_date > latest_end_date):
-                latest_end_date = end_date
-                latest_exp = exp
-        
-        if latest_end_date:
-            current_date = datetime.now()
-            gap_years = self.calculate_gap_years(latest_end_date, current_date)
-            
-            if gap_years and gap_years > 0.1:
-                company_match = re.search(r'(?:at|@|-)\s*([A-Za-z\s]+)', latest_exp, re.IGNORECASE)
-                company = company_match.group(1).strip() if company_match else "Last Role"
+        for exp in experience_entries:
+            if exp.get('is_career_break'):
+                start_year = exp['start_year']
+                end_year = exp['end_year']
+                duration = end_year - start_year
                 
+                if duration > 0:
+                    career_breaks.append({
+                        'type': 'Career Break',
+                        'from_year': start_year,
+                        'to_year': end_year,
+                        'duration_years': duration,
+                        'description': f"Career Break ({start_year} - {end_year})"
+                    })
+        
+        return career_breaks
+    
+    def analyze_current_employment_gap(self, experience_entries):
+        """Detect if candidate is currently unemployed"""
+        if not experience_entries:
+            return {'status': 'No experience listed', 'gap': None}
+        
+        # Filter out career breaks
+        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break')]
+        
+        if not regular_jobs:
+            return {'status': 'No employment history', 'gap': None}
+        
+        # Get latest job
+        latest_job = max(regular_jobs, key=lambda x: x['end_year'])
+        
+        current_year = datetime.now().year
+        
+        if latest_job.get('is_present'):
+            return {'status': 'Currently Employed', 'gap': None}
+        
+        if latest_job['end_year'] < current_year:
+            gap_years = current_year - latest_job['end_year']
+            if gap_years >= 1:
                 return {
                     'status': 'Not Currently Employed',
                     'gap': {
-                        'from_date': self.format_date_for_display(latest_end_date),
-                        'to_date': self.format_date_for_display(current_date),
-                        'duration_years': gap_years,
-                        'company': company
+                        'from_year': latest_job['end_year'],
+                        'to_year': current_year,
+                        'duration_years': gap_years
                     }
                 }
         
@@ -223,7 +212,7 @@ class GapAnalyzer:
         """Get risk indicator based on total gap duration"""
         if total_gap_years == 0:
             return "🟢 No Gap (0 Years)"
-        elif total_gap_years < 1:
+        elif total_gap_years <= 1:
             return "🟡 Minor Gap (Less than 1 Year)"
         elif total_gap_years <= 2:
             return "🟡 Minor Gap (1-2 Years)"
@@ -232,16 +221,26 @@ class GapAnalyzer:
         else:
             return "🔴 Significant Gap (More than 3 Years)"
     
-    def analyze_complete_gaps(self, education_texts, experience_texts):
-        """Complete gap analysis"""
+    def analyze_complete_gaps(self, education_raw, experience_raw):
+        """Complete gap analysis - main function to call"""
+        
+        print("=" * 50)
+        print("Gap Analyzer Debug:")
+        print(f"Education Raw: {education_raw}")
+        print(f"Experience Raw: {experience_raw}")
+        
         # Parse education and experience
-        education_list = [edu for edu in education_texts if edu.strip()]
-        experience_list = [exp for exp in experience_texts if exp.strip()]
+        education_entries = self.extract_education_entries(education_raw)
+        experience_entries = self.extract_experience_entries(experience_raw)
+        
+        print(f"Education Entries: {education_entries}")
+        print(f"Experience Entries: {experience_entries}")
         
         # Perform analyses
-        edu_to_employment_gap = self.analyze_education_to_employment_gap(education_list, experience_list)
-        employment_gaps = self.analyze_employment_gaps(experience_list)
-        current_status = self.analyze_current_employment_gap(experience_list)
+        edu_to_employment_gap = self.analyze_education_to_employment_gap(education_entries, experience_entries)
+        employment_gaps = self.analyze_employment_gaps(experience_entries)
+        career_breaks = self.analyze_career_breaks(experience_entries)
+        current_status = self.analyze_current_employment_gap(experience_entries)
         
         # Calculate total gap
         total_gap_years = 0
@@ -249,16 +248,45 @@ class GapAnalyzer:
             total_gap_years += edu_to_employment_gap['duration_years']
         for gap in employment_gaps:
             total_gap_years += gap['duration_years']
-        if current_status and current_status.get('gap'):
+        for gap in career_breaks:
+            total_gap_years += gap['duration_years']
+        if current_status.get('gap'):
             total_gap_years += current_status['gap']['duration_years']
         
         total_gap_years = round(total_gap_years, 1)
         
-        return {
-            'current_status': current_status['status'] if current_status else 'Unknown',
+        result = {
+            'current_status': current_status['status'],
             'education_to_employment_gap': edu_to_employment_gap,
             'employment_gaps': employment_gaps,
-            'current_employment_gap': current_status.get('gap') if current_status else None,
+            'career_breaks': career_breaks,
+            'current_employment_gap': current_status.get('gap'),
             'total_gap_years': total_gap_years,
             'risk_indicator': self.get_risk_indicator(total_gap_years)
         }
+        
+        print(f"Gap Analysis Result: {result}")
+        print("=" * 50)
+        
+        return result
+
+
+# For testing
+if __name__ == "__main__":
+    analyzer = GapAnalyzer()
+    
+    education_raw = [
+        "B.Tech in Computer Science (2017 - 2022) XYZ University"
+    ]
+    
+    experience_raw = [
+        "Career Break (2023 - 2024) Focused on upskilling in Python, AWS, and Generative AI",
+        "GenAI Developer (2025 - Present) Built AI-powered resume analyzer applications"
+    ]
+    
+    result = analyzer.analyze_complete_gaps(education_raw, experience_raw)
+    print("\n" + "=" * 50)
+    print("FINAL RESULT:")
+    print("=" * 50)
+    import json
+    print(json.dumps(result, indent=2))

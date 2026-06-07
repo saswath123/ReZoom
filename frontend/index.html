@@ -115,19 +115,17 @@
             <!-- Results Section -->
             <div class="results-section" id="resultsSection" style="display: none;">
                 <div class="results-container">
-                    <!-- Close Button -->
                     <button class="close-results" id="closeResults">
                         <i class="fas fa-times"></i>
                     </button>
 
-                    <!-- Left Column - Analysis Dashboard -->
+                    <!-- Left Column -->
                     <div class="analysis-column">
                         <div class="analysis-header">
                             <i class="fas fa-chart-pie"></i>
                             <h3>Intelligence Dashboard</h3>
                         </div>
 
-                        <!-- Fit Score Card -->
                         <div class="score-card" id="scoreCard">
                             <div class="score-circle" id="scoreCircle">
                                 <div class="score-value">0</div>
@@ -140,26 +138,20 @@
                             </div>
                         </div>
 
-                        <!-- Skills Analysis -->
                         <div class="insight-card">
                             <div class="card-header">
                                 <i class="fas fa-code"></i>
                                 <h4>Core Competencies</h4>
                             </div>
-                            <div class="skills-container" id="skillsList">
-                                <!-- Dynamic skills will appear here -->
-                            </div>
+                            <div class="skills-container" id="skillsList"></div>
                         </div>
 
-                        <!-- Strengths & Improvements -->
                         <div class="insight-card">
                             <div class="card-header">
                                 <i class="fas fa-star"></i>
                                 <h4>Key Strengths</h4>
                             </div>
-                            <ul class="strengths-list" id="strengthsList">
-                                <!-- Dynamic strengths -->
-                            </ul>
+                            <ul class="strengths-list" id="strengthsList"></ul>
                         </div>
 
                         <div class="insight-card">
@@ -167,13 +159,11 @@
                                 <i class="fas fa-lightbulb"></i>
                                 <h4>Growth Areas</h4>
                             </div>
-                            <ul class="improvements-list" id="improvementsList">
-                                <!-- Dynamic improvements -->
-                            </ul>
+                            <ul class="improvements-list" id="improvementsList"></ul>
                         </div>
                     </div>
 
-                    <!-- Right Column - Resume Data & Actions -->
+                    <!-- Right Column -->
                     <div class="data-column">
                         <div class="action-header">
                             <h3><i class="fas fa-file-alt"></i> Parsed Resume Data</h3>
@@ -183,7 +173,6 @@
                             </button>
                         </div>
 
-                        <!-- Candidate Info -->
                         <div class="candidate-card">
                             <div class="candidate-avatar" id="candidateAvatar">
                                 <i class="fas fa-user-circle"></i>
@@ -198,7 +187,6 @@
                             </div>
                         </div>
 
-                        <!-- Professional Summary -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-quote-left"></i>
@@ -207,80 +195,58 @@
                             <p id="professionalSummary" class="summary-text">Loading...</p>
                         </div>
 
-                        <!-- Work Experience -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-briefcase"></i>
                                 <h4>Recent Experience</h4>
                             </div>
-                            <div id="experienceList" class="experience-list">
-                                <!-- Dynamic experience -->
-                            </div>
+                            <div id="experienceList" class="experience-list"></div>
                         </div>
 
-                        <!-- Certifications -->
                         <div class="data-card" id="certificationsCard" style="display: none;">
                             <div class="card-header">
                                 <i class="fas fa-certificate"></i>
                                 <h4>Certifications</h4>
                             </div>
-                            <div id="certificationsList" class="certifications-list">
-                                <!-- Dynamic certifications -->
-                            </div>
+                            <div id="certificationsList" class="certifications-list"></div>
                         </div>
 
-                        <!-- Education -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-graduation-cap"></i>
                                 <h4>Education</h4>
                             </div>
-                            <div id="educationInfo" class="education-info">
-                                <!-- Dynamic education -->
-                            </div>
+                            <div id="educationInfo" class="education-info"></div>
                         </div>
                     </div>
 
-                    <!-- Gap Analysis Card - Full Width -->
+                    <!-- Gap Analysis Card -->
                     <div class="gap-analysis-card" id="gapAnalysisCard" style="display: none;">
                         <div class="card-header">
                             <i class="fas fa-chart-line"></i>
                             <h4>Career Gap Analysis</h4>
                         </div>
-                        
-                        <!-- Current Status -->
                         <div class="gap-status-row">
                             <span class="gap-label">Current Status:</span>
                             <span class="gap-value" id="gapCurrentStatus">--</span>
                         </div>
-                        
-                        <!-- Education to Employment Gap -->
                         <div class="gap-row" id="eduGapRow" style="display: none;">
                             <div class="gap-label">Education Gap:</div>
                             <div class="gap-value" id="eduGapText"></div>
                         </div>
-                        
-                        <!-- Employment Gaps -->
                         <div class="gap-row" id="empGapsRow" style="display: none;">
                             <div class="gap-label">Employment Gaps:</div>
                             <div class="gap-value" id="empGapsList"></div>
                         </div>
-                        
-                        <!-- Current Employment Gap -->
                         <div class="gap-row" id="currentGapRow" style="display: none;">
                             <div class="gap-label">Current Gap:</div>
                             <div class="gap-value" id="currentGapText"></div>
                         </div>
-                        
-                        <!-- Divider -->
                         <div class="gap-divider"></div>
-                        
-                        <!-- Total Gap & Risk Indicator -->
                         <div class="gap-total-row">
                             <span class="gap-label">Total Career Gap:</span>
                             <span class="gap-value" id="totalGap">--</span>
                         </div>
-                        
                         <div class="gap-risk-row">
                             <span class="gap-label">Risk Indicator:</span>
                             <span class="gap-risk-value" id="riskIndicator">--</span>
@@ -291,6 +257,32 @@
         </div>
     </div>
 
+    <!-- Preview Modal -->
+    <div class="preview-modal" id="previewModal" style="display: none;">
+        <div class="preview-modal-content">
+            <div class="preview-modal-header">
+                <h3><i class="fas fa-eye"></i> Resume Preview</h3>
+                <button class="preview-close" id="previewCloseBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="preview-modal-body">
+                <div class="preview-image-container">
+                    <img id="previewImage" alt="Resume Preview">
+                </div>
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn-secondary" id="previewCancelBtn">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="btn-primary" id="previewDownloadBtn">
+                    <i class="fas fa-download"></i> Download Resume
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script at the END of body -->
     <script src="app.js"></script>
 </body>
 </html>

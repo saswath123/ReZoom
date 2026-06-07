@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 import math
 
-FONT_SCALE = 1
 def safe_str(value):
     """Convert None to empty string safely"""
     return str(value) if value is not None else ""
@@ -80,7 +79,6 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
                  bold=False, color=(51, 51, 51), align="left"):
     """Add text with proper positioning"""
     
-    font_size = int(font_size * FONT_SCALE)
     safe_text = safe_str(text)
     if not safe_text:
         return y
@@ -111,7 +109,7 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
     
     return current_y
 
-def generate_resume_image(data, output_path):
+def generate_resume_image(data, gap_analysis, output_path):
     """Generate a professional, clean corporate resume as PNG image"""
     
     # Canvas size (matches PPT 10x7.5 inches at 96 DPI = 960x720)
@@ -164,7 +162,7 @@ def generate_resume_image(data, output_path):
     email = data.get('email', '')
     if email and email != 'Not specified' and email != 'Not found':
         add_text_box(draw, inches_to_pixels(0.4), contact_y + inches_to_pixels(0.65), 
-                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Mail: {safe_str(email)}", 
+                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Email: {safe_str(email)}", 
                     font_size=22, color=COLOR_GRAY)
     
     # Location
@@ -178,7 +176,7 @@ def generate_resume_image(data, output_path):
     linkedin = data.get('linkedin', '')
     if linkedin and linkedin != 'Not specified' and linkedin != 'Not found':
         add_text_box(draw, inches_to_pixels(0.4), contact_y + inches_to_pixels(1.25), 
-                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Linkedin: {safe_str(linkedin)[:20]}", 
+                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"LinkedIn: {safe_str(linkedin)[:20]}", 
                     font_size=22, color=COLOR_GRAY)
     
     # Skills Section
@@ -358,7 +356,7 @@ def generate_resume_image(data, output_path):
     
     # Footer
     footer_y = height - inches_to_pixels(0.3)
-    footer_text = f"AI Resume Intelligence Report - Generated {datetime.now().strftime('%B %d, %Y')}"
+    footer_text = f"AI Resume Intelligence Report  Generated {datetime.now().strftime('%B %d, %Y')}"
     
     try:
         font_footer = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 12)
