@@ -190,10 +190,11 @@ async function uploadResume() {
 
 // Display Results
 function displayResults(data) {
-    const resumeData = data.data;
+    const resumeData = data.data;  // ← MUST BE FIRST!
     const gapAnalysis = data.gap_analysis;
     const fitScore = resumeData.fit_score || 85;
     
+    // ===== 1. UPDATE FIT SCORE =====
     updateScoreCircle(fitScore);
     
     const scoreStatus = document.getElementById('scoreStatus');
@@ -208,9 +209,11 @@ function displayResults(data) {
         scoreStatus.style.color = '#ef4444';
     }
     
+    // ===== 2. UPDATE STATS =====
     document.getElementById('strengthCount').textContent = (resumeData.strengths || []).length;
     document.getElementById('expYears').textContent = resumeData.total_experience_years || '0';
     
+    // ===== 3. UPDATE SKILLS =====
     const skillsList = document.getElementById('skillsList');
     skillsList.innerHTML = '';
     (resumeData.skills || []).slice(0, 12).forEach(skill => {
@@ -220,6 +223,7 @@ function displayResults(data) {
         skillsList.appendChild(skillTag);
     });
     
+    // ===== 4. UPDATE STRENGTHS =====
     const strengthsList = document.getElementById('strengthsList');
     strengthsList.innerHTML = '';
     (resumeData.strengths || []).forEach(strength => {
@@ -228,6 +232,7 @@ function displayResults(data) {
         strengthsList.appendChild(li);
     });
     
+    // ===== 5. UPDATE IMPROVEMENTS =====
     const improvementsList = document.getElementById('improvementsList');
     improvementsList.innerHTML = '';
     (resumeData.areas_for_improvement || []).forEach(improvement => {
@@ -236,13 +241,22 @@ function displayResults(data) {
         improvementsList.appendChild(li);
     });
     
+    // ===== 6. UPDATE CANDIDATE INFO =====
     document.getElementById('candidateName').textContent = resumeData.name || 'Candidate';
     document.getElementById('candidateRole').textContent = resumeData.current_role || 'Professional';
     document.getElementById('candidateLocation').textContent = resumeData.location || 'Not specified';
     document.getElementById('candidateEmail').textContent = resumeData.email || 'Not provided';
     
+    // Add phone display
+    const candidatePhone = document.getElementById('candidatePhone');
+    if (candidatePhone) {
+        candidatePhone.textContent = resumeData.phone || 'Not provided';
+    }
+    
+    // ===== 7. UPDATE PROFESSIONAL SUMMARY =====
     document.getElementById('professionalSummary').textContent = resumeData.professional_summary || 'No summary available.';
     
+    // ===== 8. UPDATE EXPERIENCE =====
     const experienceList = document.getElementById('experienceList');
     experienceList.innerHTML = '';
     (resumeData.latest_3_experiences || []).forEach(exp => {
@@ -259,6 +273,7 @@ function displayResults(data) {
         experienceList.appendChild(expDiv);
     });
     
+    // ===== 9. UPDATE CERTIFICATIONS =====
     const certifications = resumeData.certifications || [];
     if (certifications.length > 0) {
         document.getElementById('certificationsCard').style.display = 'block';
@@ -272,6 +287,7 @@ function displayResults(data) {
         });
     }
     
+    // ===== 10. UPDATE EDUCATION =====
     const education = resumeData.education || {};
     const educationInfo = document.getElementById('educationInfo');
     educationInfo.innerHTML = `
@@ -279,19 +295,95 @@ function displayResults(data) {
         <p>${education.institution || 'Institution'} | ${education.year || 'Year'}</p>
     `;
     
+    // ===== 11. UPDATE RESUME QUALITY SCORE (NEW) =====
+    if (resumeData.resume_quality_score) {
+        const qualityValue = document.getElementById('qualityValue');
+        const qualityVerdict = document.getElementById('qualityVerdict');
+        const qualityCircle = document.getElementById('qualityCircle');
+        const qualityObservations = document.getElementById('qualityObservations');
+        
+        const qualityScore = resumeData.resume_quality_score;
+        const qualityVerdictText = resumeData.resume_quality_verdict || 
+            (qualityScore >= 90 ? "Excellent" : qualityScore >= 70 ? "Good" : qualityScore >= 50 ? "Average" : qualityScore >= 30 ? "Poor" : "Very Poor");
+        
+        if (qualityValue) qualityValue.textContent = qualityScore;
+        if (qualityVerdict) {
+            qualityVerdict.textContent = qualityVerdictText;
+            qualityVerdict.className = `quality-verdict ${qualityVerdictText.toLowerCase().replace(' ', '-')}`;
+        }
+        
+        // Update quality circle
+        if (qualityCircle) {
+            const angle = (qualityScore / 100) * 360;
+            qualityCircle.style.background = `conic-gradient(var(--accent-primary) 0deg ${angle}deg, var(--bg-hover) ${angle}deg 360deg)`;
+        }
+        
+        // Display observations
+        if (qualityObservations) {
+            const observations = resumeData.quality_observations || [];
+            qualityObservations.innerHTML = '';
+            observations.forEach(obs => {
+                const p = document.createElement('p');
+                p.innerHTML = `<i class="fas fa-info-circle"></i> ${obs}`;
+                qualityObservations.appendChild(p);
+            });
+        }
+    }
+    
+    // ===== 12. UPDATE RED FLAGS (NEW) =====
+    const redFlags = resumeData.red_flags || {};
+    const redFlagsCard = document.getElementById('redFlagsCard');
+    const redFlagsList = document.getElementById('redFlagsList');
+    const hasRedFlags = Object.values(redFlags).some(flag => flag === true);
+    
+    if (hasRedFlags && redFlagsCard) {
+        redFlagsCard.style.display = 'block';
+        if (redFlagsList) {
+            redFlagsList.innerHTML = '';
+            
+            const flagNames = {
+                missing_contact_info: "Missing contact information",
+                no_work_experience: "No work experience documented",
+                vague_descriptions: "Vague job descriptions",
+                generic_skills: "Generic or irrelevant skills",
+                missing_dates: "Missing dates in experience/education",
+                unprofessional_language: "Unprofessional language detected",
+                incomplete_education: "Incomplete education section",
+                poor_formatting: "Poor resume formatting",
+                irrelevant_skills: "Irrelevant skills listed"
+            };
+            
+            for (const [flag, isPresent] of Object.entries(redFlags)) {
+                if (isPresent && flagNames[flag]) {
+                    const flagItem = document.createElement('span');
+                    flagItem.className = 'red-flag-item';
+                    flagItem.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${flagNames[flag]}`;
+                    redFlagsList.appendChild(flagItem);
+                }
+            }
+        }
+    } else if (redFlagsCard) {
+        redFlagsCard.style.display = 'none';
+    }
+    
+    // ===== 13. UPDATE GAP ANALYSIS =====
     if (gapAnalysis) {
         const gapCard = document.getElementById('gapAnalysisCard');
         if (gapCard) {
             gapCard.style.display = 'block';
             document.getElementById('gapCurrentStatus').textContent = gapAnalysis.current_status || 'Unknown';
             
+            // Education Gap
             const eduGap = gapAnalysis.education_to_employment_gap;
             const eduGapRow = document.getElementById('eduGapRow');
             if (eduGap && eduGapRow) {
                 document.getElementById('eduGapText').innerHTML = `• ${eduGap.description}: ${eduGap.duration_years} Year${eduGap.duration_years !== 1 ? 's' : ''}`;
                 eduGapRow.style.display = 'flex';
+            } else if (eduGapRow) {
+                eduGapRow.style.display = 'none';
             }
             
+            // Employment Gaps
             const empGaps = gapAnalysis.employment_gaps || [];
             const empGapsList = document.getElementById('empGapsList');
             if (empGaps.length > 0 && empGapsList) {
@@ -303,18 +395,41 @@ function displayResults(data) {
                     empGapsList.appendChild(div);
                 });
                 document.getElementById('empGapsRow').style.display = 'block';
+            } else {
+                document.getElementById('empGapsRow').style.display = 'none';
             }
             
+            // Career Breaks
+            const careerBreaks = gapAnalysis.career_breaks || [];
+            const careerBreaksList = document.getElementById('careerBreaksList');
+            if (careerBreaks.length > 0 && careerBreaksList) {
+                careerBreaksList.innerHTML = '';
+                careerBreaks.forEach(breakItem => {
+                    const div = document.createElement('div');
+                    div.className = 'gap-item';
+                    div.innerHTML = `• ${breakItem.description}: ${breakItem.duration_years} Year${breakItem.duration_years !== 1 ? 's' : ''}`;
+                    careerBreaksList.appendChild(div);
+                });
+                document.getElementById('careerBreaksRow').style.display = 'block';
+            } else {
+                document.getElementById('careerBreaksRow').style.display = 'none';
+            }
+            
+            // Current Gap
             const currentGap = gapAnalysis.current_employment_gap;
             const currentGapRow = document.getElementById('currentGapRow');
             if (currentGap && currentGapRow) {
-                document.getElementById('currentGapText').innerHTML = `• ${currentGap.from_date} to ${currentGap.to_date}: ${currentGap.duration_years} Year${currentGap.duration_years !== 1 ? 's' : ''}`;
+                document.getElementById('currentGapText').innerHTML = `• ${currentGap.from_year} to ${currentGap.to_year}: ${currentGap.duration_years} Year${currentGap.duration_years !== 1 ? 's' : ''}`;
                 currentGapRow.style.display = 'flex';
+            } else if (currentGapRow) {
+                currentGapRow.style.display = 'none';
             }
             
+            // Total Gap
             const totalGap = gapAnalysis.total_gap_years || 0;
             document.getElementById('totalGap').textContent = `${totalGap} Year${totalGap !== 1 ? 's' : ''}`;
             
+            // Risk Indicator
             const riskText = gapAnalysis.risk_indicator || '🟢 No Gap (0 Years)';
             const riskElement = document.getElementById('riskIndicator');
             if (riskElement) {

@@ -110,6 +110,189 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
     return current_y
 
 def generate_resume_image(data, gap_analysis, output_path):
+    """Generate professional resume image with quality detection"""
+    
+    # Check if this is a poor quality resume
+    red_flags = data.get('red_flags', {})
+    quality_score = data.get('resume_quality_score', 75)
+    
+    if quality_score < 30:
+        return generate_worst_resume_template(data, gap_analysis, output_path)
+    elif quality_score < 50:
+        return generate_poor_resume_template(data, gap_analysis, output_path)
+    else:
+        return generate_professional_resume_template(data, gap_analysis, output_path)
+
+
+def generate_worst_resume_template(data, gap_analysis, output_path):
+    """Generate a 'Worst Resume' warning template"""
+    
+    width = 1920
+    height = 1080
+    img = Image.new('RGB', (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    # Warning colors
+    RED = (220, 38, 38)
+    DARK_RED = (180, 20, 20)
+    ORANGE = (249, 115, 22)
+    YELLOW = (250, 204, 21)
+    WHITE = (255, 255, 255)
+    GRAY = (100, 100, 100)
+    
+    try:
+        font_title = ImageFont.truetype("arialbd.ttf", 72)
+        font_heading = ImageFont.truetype("arialbd.ttf", 36)
+        font_body = ImageFont.truetype("arial.ttf", 24)
+        font_small = ImageFont.truetype("arial.ttf", 18)
+    except:
+        font_title = ImageFont.load_default()
+        font_heading = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    
+    # Warning header
+    draw.rectangle([0, 0, width, 120], fill=RED)
+    draw.text((width//2 - 200, 35), "⚠️ VERY POOR QUALITY RESUME ⚠️", fill=WHITE, font=font_title)
+    
+    # Quality Score
+    quality_score = data.get('resume_quality_score', 15)
+    draw.ellipse([width-150, 20, width-30, 140], fill=DARK_RED)
+    draw.text((width-115, 60), str(quality_score), fill=WHITE, font=font_title)
+    draw.text((width-120, 105), "QUALITY", fill=WHITE, font=font_small)
+    
+    # Main content
+    y = 160
+    
+    # Red Flags Section
+    draw.rectangle([40, y, width-40, y+60], fill=RED, outline=ORANGE, width=3)
+    draw.text((60, y+15), "🚨 CRITICAL ISSUES DETECTED 🚨", fill=WHITE, font=font_heading)
+    y += 80
+    
+    red_flags = data.get('red_flags', {})
+    quality_observations = data.get('quality_observations', [])
+    
+    for obs in quality_observations[:8]:
+        draw.text((60, y), f"• {obs}", fill=RED, font=font_body)
+        y += 40
+    
+    # Candidate Info Section
+    y += 20
+    draw.rectangle([40, y, width-40, y+50], fill=GRAY)
+    draw.text((60, y+12), "📋 CANDIDATE INFORMATION", fill=WHITE, font=font_heading)
+    y += 70
+    
+    name = data.get('name', 'Unknown Candidate')
+    phone = data.get('phone', 'Not Provided')
+    email = data.get('email', 'Not Provided')
+    
+    draw.text((60, y), f"Name: {name}", fill=(0,0,0), font=font_body)
+    y += 40
+    draw.text((60, y), f"Phone: {phone}", fill=(0,0,0), font=font_body)
+    y += 40
+    draw.text((60, y), f"Email: {email}", fill=(0,0,0), font=font_body)
+    y += 60
+    
+    # Recommendations
+    draw.rectangle([40, y, width-40, y+50], fill=ORANGE)
+    draw.text((60, y+12), "💡 RECOMMENDATIONS FOR IMPROVEMENT", fill=WHITE, font=font_heading)
+    y += 70
+    
+    recommendations = [
+        "1. Add complete and professional contact information",
+        "2. Include relevant technical skills instead of social media",
+        "3. Provide specific work experience with dates and achievements",
+        "4. Write a professional summary focusing on skills",
+        "5. Add proper education details with years and institutions",
+        "6. Remove unprofessional language and exaggerations",
+        "7. Use a standard resume format with clear sections"
+    ]
+    
+    for rec in recommendations:
+        draw.text((60, y), rec, fill=GRAY, font=font_body)
+        y += 35
+    
+    # Footer
+    draw.rectangle([0, height-60, width, height], fill=RED)
+    draw.text((width//2 - 250, height-45), "This resume requires significant improvement before submission", fill=WHITE, font=font_small)
+    
+    img.save(output_path, "PNG", dpi=(300, 300))
+    return output_path
+
+def format_gap_duration(duration):
+    """Format gap duration for display"""
+    if duration == 'Unknown':
+        return "❓ Cannot determine - missing date information"
+    elif duration == 0:
+        return "✅ No gap detected"
+    else:
+        return f"⚠️ {duration} Year{'s' if duration != 1 else ''}"
+
+def generate_poor_resume_template(data, gap_analysis, output_path):
+    """Generate a 'Poor Quality' warning template"""
+    
+    width = 1920
+    height = 1080
+    img = Image.new('RGB', (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    ORANGE = (249, 115, 22)
+    YELLOW = (250, 204, 21)
+    WHITE = (255, 255, 255)
+    GRAY = (100, 100, 100)
+    
+    try:
+        font_title = ImageFont.truetype("arialbd.ttf", 52)
+        font_heading = ImageFont.truetype("arialbd.ttf", 28)
+        font_body = ImageFont.truetype("arial.ttf", 20)
+        font_small = ImageFont.truetype("arial.ttf", 16)
+    except:
+        font_title = ImageFont.load_default()
+        font_heading = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    
+    # Warning header
+    draw.rectangle([0, 0, width, 100], fill=ORANGE)
+    draw.text((width//2 - 180, 30), "⚠️ POOR QUALITY RESUME ⚠️", fill=WHITE, font=font_title)
+    
+    # Quality Score
+    quality_score = data.get('resume_quality_score', 35)
+    draw.ellipse([width-150, 15, width-30, 135], fill=YELLOW)
+    draw.text((width-115, 50), str(quality_score), fill=(0,0,0), font=font_title)
+    draw.text((width-120, 95), "QUALITY", fill=GRAY, font=font_small)
+    
+    y = 140
+    
+    # Issues detected
+    draw.text((60, y), "Issues Detected:", fill=ORANGE, font=font_heading)
+    y += 45
+    
+    quality_observations = data.get('quality_observations', [])
+    for obs in quality_observations[:6]:
+        draw.text((80, y), f"⚠ {obs}", fill=GRAY, font=font_body)
+        y += 35
+    
+    # Quick fix suggestions
+    y += 20
+    draw.text((60, y), "Quick Fixes Needed:", fill=ORANGE, font=font_heading)
+    y += 45
+    
+    fixes = [
+        "• Add professional email and phone number",
+        "• Include relevant technical skills",
+        "• Provide specific work experience with measurable achievements",
+        "• Use professional language throughout"
+    ]
+    
+    for fix in fixes:
+        draw.text((80, y), fix, fill=GRAY, font=font_body)
+        y += 35
+    
+    img.save(output_path, "PNG", dpi=(300, 300))
+    return output_path
+
+def generate_resume_image(data, gap_analysis, output_path):
     """Generate a professional, clean corporate resume as PNG image"""
     
     # Canvas size (matches PPT 10x7.5 inches at 96 DPI = 960x720)

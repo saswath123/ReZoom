@@ -992,6 +992,128 @@ body {
     color: var(--text-secondary);
 }
 
+/* Quality Card Styles */
+.quality-card {
+    background: var(--bg-card);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.quality-score-display {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.quality-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: conic-gradient(var(--accent-primary) 0deg, var(--bg-hover) 0deg);
+    position: relative;
+}
+
+.quality-circle::before {
+    content: '';
+    position: absolute;
+    width: 65px;
+    height: 65px;
+    background: var(--bg-card);
+    border-radius: 50%;
+}
+
+.quality-value {
+    font-size: 24px;
+    font-weight: 800;
+    position: relative;
+    z-index: 1;
+    color: var(--accent-primary);
+}
+
+.quality-max {
+    font-size: 12px;
+    position: relative;
+    z-index: 1;
+    color: var(--text-muted);
+}
+
+.quality-verdict {
+    font-size: 20px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 25px;
+    background: var(--bg-hover);
+}
+
+.quality-verdict.excellent { color: #10b981; }
+.quality-verdict.good { color: #3b82f6; }
+.quality-verdict.average { color: #f59e0b; }
+.quality-verdict.poor { color: #f97316; }
+.quality-verdict.very-poor { color: #ef4444; }
+.quality-verdict.worst { color: #dc2626; }
+
+.quality-observations {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.quality-observations p {
+    font-size: 12px;
+    padding: 5px 0;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quality-observations i {
+    width: 16px;
+    color: var(--accent-warning);
+}
+
+/* Red Flags Card */
+.red-flags-card {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid #ef4444;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.red-flags-card .card-header i {
+    color: #ef4444;
+}
+
+.red-flags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.red-flag-item {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.red-flag-item i {
+    font-size: 10px;
+}
 /* Responsive Design */
 @media (max-width: 968px) {
     .upload-container {

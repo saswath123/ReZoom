@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip for batch download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -51,19 +53,26 @@
             <div class="upload-section" id="uploadSection">
                 <div class="upload-container">
                     <div class="upload-area" id="uploadArea">
-                        <input type="file" id="resumeFile" accept=".pdf,.docx" hidden>
+                        <input type="file" id="resumeFile" accept=".pdf,.docx" multiple hidden>
                         <div class="upload-icon">
                             <i class="fas fa-cloud-upload-alt"></i>
                         </div>
-                        <h3>Upload Professional Resume</h3>
-                        <p>Drag & drop or click to browse</p>
+                        <h3>Upload Resumes <span style="font-size: 14px;">(Batch Mode)</span></h3>
+                        <p>Drag & drop or click to browse (Multiple files allowed)</p>
                         <div class="upload-hint">
                             <i class="fas fa-file-alt"></i>
-                            <span>Supports PDF, DOCX (Max 5MB)</span>
+                            <span>Supports PDF, DOCX (Max 10 files, 5MB each)</span>
                         </div>
+                        
+                        <!-- File List for Batch Upload -->
+                        <div class="file-list" id="fileList" style="display: none;">
+                            <h4>Selected Files:</h4>
+                            <ul id="selectedFilesList"></ul>
+                        </div>
+                        
                         <button class="upload-btn" id="uploadBtn">
                             <i class="fas fa-upload"></i>
-                            <span>Choose File</span>
+                            <span>Upload & Process</span>
                         </button>
                     </div>
                     
@@ -83,12 +92,23 @@
                             </div>
                         </div>
                         <div class="benefit-item">
-                            <i class="fas fa-chart-simple"></i>
+                            <i class="fas fa-layer-group"></i>
                             <div>
-                                <strong>Smart Scoring</strong>
-                                <p>0-100 fit score with insights</p>
+                                <strong>Batch Processing</strong>
+                                <p>Upload up to 10 resumes at once</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- Batch Progress Bar -->
+                <div class="batch-progress" id="batchProgress" style="display: none;">
+                    <div class="batch-progress-header">
+                        <span>Processing Batch</span>
+                        <span id="progressCount">0 / 0</span>
+                    </div>
+                    <div class="batch-progress-bar">
+                        <div class="batch-progress-fill" id="batchProgressFill"></div>
                     </div>
                 </div>
             </div>
@@ -112,20 +132,22 @@
                 </div>
             </div>
 
-            <!-- Results Section -->
+            <!-- Single Resume Results Section -->
             <div class="results-section" id="resultsSection" style="display: none;">
                 <div class="results-container">
+                    <!-- Close Button -->
                     <button class="close-results" id="closeResults">
                         <i class="fas fa-times"></i>
                     </button>
 
-                    <!-- Left Column -->
+                    <!-- Left Column - Analysis Dashboard -->
                     <div class="analysis-column">
                         <div class="analysis-header">
                             <i class="fas fa-chart-pie"></i>
                             <h3>Intelligence Dashboard</h3>
                         </div>
 
+                        <!-- Fit Score Card -->
                         <div class="score-card" id="scoreCard">
                             <div class="score-circle" id="scoreCircle">
                                 <div class="score-value">0</div>
@@ -138,6 +160,32 @@
                             </div>
                         </div>
 
+                        <!-- Resume Quality Card -->
+                        <div class="quality-card" id="qualityCard">
+                            <div class="card-header">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h4>Resume Quality</h4>
+                            </div>
+                            <div class="quality-score-display">
+                                <div class="quality-circle" id="qualityCircle">
+                                    <span class="quality-value" id="qualityValue">0</span>
+                                    <span class="quality-max">/100</span>
+                                </div>
+                                <div class="quality-verdict" id="qualityVerdict"></div>
+                            </div>
+                            <div class="quality-observations" id="qualityObservations"></div>
+                        </div>
+
+                        <!-- Red Flags Card -->
+                        <div class="red-flags-card" id="redFlagsCard" style="display: none;">
+                            <div class="card-header">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <h4>Red Flags Detected</h4>
+                            </div>
+                            <div class="red-flags-list" id="redFlagsList"></div>
+                        </div>
+
+                        <!-- Skills Analysis -->
                         <div class="insight-card">
                             <div class="card-header">
                                 <i class="fas fa-code"></i>
@@ -146,6 +194,7 @@
                             <div class="skills-container" id="skillsList"></div>
                         </div>
 
+                        <!-- Strengths & Improvements -->
                         <div class="insight-card">
                             <div class="card-header">
                                 <i class="fas fa-star"></i>
@@ -163,7 +212,7 @@
                         </div>
                     </div>
 
-                    <!-- Right Column -->
+                    <!-- Right Column - Resume Data & Actions -->
                     <div class="data-column">
                         <div class="action-header">
                             <h3><i class="fas fa-file-alt"></i> Parsed Resume Data</h3>
@@ -173,6 +222,7 @@
                             </button>
                         </div>
 
+                        <!-- Candidate Info -->
                         <div class="candidate-card">
                             <div class="candidate-avatar" id="candidateAvatar">
                                 <i class="fas fa-user-circle"></i>
@@ -183,10 +233,12 @@
                                 <div class="candidate-meta">
                                     <span><i class="fas fa-map-marker-alt"></i> <span id="candidateLocation">Location</span></span>
                                     <span><i class="fas fa-envelope"></i> <span id="candidateEmail">Email</span></span>
+                                    <span><i class="fas fa-phone"></i> <span id="candidatePhone">Phone</span></span>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Professional Summary -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-quote-left"></i>
@@ -195,6 +247,7 @@
                             <p id="professionalSummary" class="summary-text">Loading...</p>
                         </div>
 
+                        <!-- Work Experience -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-briefcase"></i>
@@ -203,6 +256,7 @@
                             <div id="experienceList" class="experience-list"></div>
                         </div>
 
+                        <!-- Certifications -->
                         <div class="data-card" id="certificationsCard" style="display: none;">
                             <div class="card-header">
                                 <i class="fas fa-certificate"></i>
@@ -211,6 +265,7 @@
                             <div id="certificationsList" class="certifications-list"></div>
                         </div>
 
+                        <!-- Education -->
                         <div class="data-card">
                             <div class="card-header">
                                 <i class="fas fa-graduation-cap"></i>
@@ -220,38 +275,88 @@
                         </div>
                     </div>
 
-                    <!-- Gap Analysis Card -->
+                    <!-- Gap Analysis Card - Full Width -->
                     <div class="gap-analysis-card" id="gapAnalysisCard" style="display: none;">
                         <div class="card-header">
                             <i class="fas fa-chart-line"></i>
                             <h4>Career Gap Analysis</h4>
                         </div>
+                        
                         <div class="gap-status-row">
                             <span class="gap-label">Current Status:</span>
                             <span class="gap-value" id="gapCurrentStatus">--</span>
                         </div>
+                        
                         <div class="gap-row" id="eduGapRow" style="display: none;">
                             <div class="gap-label">Education Gap:</div>
                             <div class="gap-value" id="eduGapText"></div>
                         </div>
+                        
                         <div class="gap-row" id="empGapsRow" style="display: none;">
                             <div class="gap-label">Employment Gaps:</div>
                             <div class="gap-value" id="empGapsList"></div>
                         </div>
+                        
+                        <div class="gap-row" id="careerBreaksRow" style="display: none;">
+                            <div class="gap-label">Career Breaks:</div>
+                            <div class="gap-value" id="careerBreaksList"></div>
+                        </div>
+                        
                         <div class="gap-row" id="currentGapRow" style="display: none;">
                             <div class="gap-label">Current Gap:</div>
                             <div class="gap-value" id="currentGapText"></div>
                         </div>
+                        
                         <div class="gap-divider"></div>
+                        
                         <div class="gap-total-row">
                             <span class="gap-label">Total Career Gap:</span>
                             <span class="gap-value" id="totalGap">--</span>
                         </div>
+                        
                         <div class="gap-risk-row">
                             <span class="gap-label">Risk Indicator:</span>
                             <span class="gap-risk-value" id="riskIndicator">--</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Batch Results Section -->
+            <div class="batch-results-section" id="batchResultsSection" style="display: none;">
+                <div class="batch-results-container">
+                    <div class="batch-header">
+                        <h3><i class="fas fa-layer-group"></i> Batch Processing Results</h3>
+                        <div class="batch-actions">
+                            <button class="download-all-btn" id="downloadAllBtn">
+                                <i class="fas fa-download"></i> Download All (ZIP)
+                            </button>
+                            <button class="close-batch-results" id="closeBatchResults">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="batch-summary">
+                        <div class="summary-card">
+                            <span>Total Processed</span>
+                            <strong id="totalProcessed">0</strong>
+                        </div>
+                        <div class="summary-card">
+                            <span>Successful</span>
+                            <strong id="totalSuccess">0</strong>
+                        </div>
+                        <div class="summary-card">
+                            <span>Failed</span>
+                            <strong id="totalFailed">0</strong>
+                        </div>
+                        <div class="summary-card">
+                            <span>Avg Fit Score</span>
+                            <strong id="avgFitScore">0</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="batch-results-grid" id="batchResultsGrid"></div>
                 </div>
             </div>
         </div>
@@ -282,7 +387,6 @@
         </div>
     </div>
 
-    <!-- Script at the END of body -->
     <script src="app.js"></script>
 </body>
 </html>

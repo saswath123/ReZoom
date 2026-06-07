@@ -18,6 +18,12 @@ class GapAnalyzer:
         years = re.findall(r'\b(19[0-9]{2}|20[0-2][0-9]|2030)\b', str(text))
         return [int(y) for y in years]
     
+    def has_valid_years(self, text):
+        """Check if text contains valid years"""
+        if not text:
+            return False
+        return len(self.extract_years_from_text(text)) > 0
+    
     def parse_date_range(self, text):
         """Extract start and end years from a date range string"""
         if not text:
@@ -61,13 +67,15 @@ class GapAnalyzer:
             if not edu:
                 continue
             
+            has_years = self.has_valid_years(edu)
             start, end = self.parse_date_range(edu)
-            if start:
-                education_entries.append({
-                    'text': edu,
-                    'start_year': start,
-                    'end_year': end if end else start,
-                })
+            
+            education_entries.append({
+                'text': edu,
+                'start_year': start,
+                'end_year': end if end else start,
+                'has_years': has_years
+            })
         
         return education_entries
     
@@ -82,20 +90,21 @@ class GapAnalyzer:
             if not exp:
                 continue
             
+            has_years = self.has_valid_years(exp)
             start, end = self.parse_date_range(exp)
             is_break = self.is_career_break(exp)
             
-            if start:
-                experience_entries.append({
-                    'text': exp,
-                    'start_year': start,
-                    'end_year': end if end else start,
-                    'is_career_break': is_break,
-                    'is_present': 'present' in str(exp).lower()
-                })
+            experience_entries.append({
+                'text': exp,
+                'start_year': start,
+                'end_year': end if end else start,
+                'has_years': has_years,
+                'is_career_break': is_break,
+                'is_present': 'present' in str(exp).lower()
+            })
         
-        # Sort by start year
-        experience_entries.sort(key=lambda x: x['start_year'])
+        # Sort by start year (entries without years go to the end)
+        experience_entries.sort(key=lambda x: x['start_year'] if x['start_year'] else 9999)
         
         return experience_entries
     
@@ -104,29 +113,51 @@ class GapAnalyzer:
         if not education_entries or not experience_entries:
             return None
         
-        # Get latest education end year
-        latest_edu = max(education_entries, key=lambda x: x['end_year'])
+        # Get latest education with valid years
+        edu_with_years = [e for e in education_entries if e.get('has_years')]
+        
+        # If no education has years
+        if not edu_with_years:
+            return {
+                'type': 'Education-to-Employment Gap',
+                'from_year': 'Not specified',
+                'to_year': 'Not specified',
+                'duration_years': 'Unknown',
+                'description': '❓ Cannot determine - missing graduation year'
+            }
+        
+        latest_edu = max(edu_with_years, key=lambda x: x['end_year'] if x['end_year'] else 0)
         edu_end_year = latest_edu['end_year']
         
-        # Get first non-career-break job
+        # Get first non-career-break job with valid years
         first_job = None
         for exp in experience_entries:
-            if not exp.get('is_career_break'):
+            if not exp.get('is_career_break') and exp.get('has_years') and exp.get('start_year'):
                 first_job = exp
                 break
         
-        if first_job:
-            job_start_year = first_job['start_year']
-            
-            if job_start_year > edu_end_year:
-                gap_years = job_start_year - edu_end_year
-                return {
-                    'type': 'Education-to-Employment Gap',
-                    'from_year': edu_end_year,
-                    'to_year': job_start_year,
-                    'duration_years': gap_years,
-                    'description': f"Graduation ({edu_end_year}) → First Job ({job_start_year})"
-                }
+        if not first_job:
+            return None
+        
+        job_start_year = first_job['start_year']
+        
+        if job_start_year and edu_end_year and job_start_year > edu_end_year:
+            gap_years = job_start_year - edu_end_year
+            return {
+                'type': 'Education-to-Employment Gap',
+                'from_year': edu_end_year,
+                'to_year': job_start_year,
+                'duration_years': gap_years,
+                'description': f"Graduation ({edu_end_year}) → First Job ({job_start_year})"
+            }
+        elif not edu_end_year:
+            return {
+                'type': 'Education-to-Employment Gap',
+                'from_year': 'Not specified',
+                'to_year': job_start_year if job_start_year else 'Not specified',
+                'duration_years': 'Unknown',
+                'description': '❓ Cannot determine - missing graduation year'
+            }
         
         return None
     
@@ -134,8 +165,8 @@ class GapAnalyzer:
         """Detect gaps between consecutive employments"""
         gaps = []
         
-        # Filter out career breaks for main gap analysis
-        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break')]
+        # Filter out career breaks and entries without years
+        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break') and exp.get('has_years')]
         
         for i in range(len(regular_jobs) - 1):
             current_end = regular_jobs[i]['end_year']
@@ -149,7 +180,7 @@ class GapAnalyzer:
                         'from_year': current_end,
                         'to_year': next_start,
                         'duration_years': gap_years,
-                        'description': f"Job {i+1} → Job {i+2}"
+                        'description': f"Employment gap of {gap_years} year{'s' if gap_years != 1 else ''}"
                     })
         
         return gaps
@@ -160,17 +191,35 @@ class GapAnalyzer:
         
         for exp in experience_entries:
             if exp.get('is_career_break'):
+                has_years = exp.get('has_years', False)
                 start_year = exp['start_year']
                 end_year = exp['end_year']
-                duration = end_year - start_year
                 
-                if duration > 0:
+                if has_years and start_year and end_year:
+                    duration = end_year - start_year
+                    if duration > 0:
+                        career_breaks.append({
+                            'type': 'Career Break',
+                            'from_year': start_year,
+                            'to_year': end_year,
+                            'duration_years': duration,
+                            'description': f"Career Break ({start_year} - {end_year})"
+                        })
+                    else:
+                        career_breaks.append({
+                            'type': 'Career Break',
+                            'from_year': start_year,
+                            'to_year': end_year,
+                            'duration_years': 'Less than 1 year',
+                            'description': f"Career Break (within {start_year})"
+                        })
+                else:
                     career_breaks.append({
                         'type': 'Career Break',
-                        'from_year': start_year,
-                        'to_year': end_year,
-                        'duration_years': duration,
-                        'description': f"Career Break ({start_year} - {end_year})"
+                        'from_year': 'Not specified',
+                        'to_year': 'Not specified',
+                        'duration_years': 'Unknown',
+                        'description': "❓ Career Break - years not specified"
                     })
         
         return career_breaks
@@ -180,38 +229,41 @@ class GapAnalyzer:
         if not experience_entries:
             return {'status': 'No experience listed', 'gap': None}
         
-        # Filter out career breaks
-        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break')]
+        # Filter out career breaks and get jobs with years
+        regular_jobs = [exp for exp in experience_entries if not exp.get('is_career_break') and exp.get('has_years')]
         
         if not regular_jobs:
-            return {'status': 'No employment history', 'gap': None}
+            return {'status': '❓ Cannot determine - missing dates', 'gap': None}
         
         # Get latest job
-        latest_job = max(regular_jobs, key=lambda x: x['end_year'])
+        latest_job = max(regular_jobs, key=lambda x: x['end_year'] if x['end_year'] else 0)
         
         current_year = datetime.now().year
         
         if latest_job.get('is_present'):
-            return {'status': 'Currently Employed', 'gap': None}
+            return {'status': 'Currently Employed ✅', 'gap': None}
         
-        if latest_job['end_year'] < current_year:
+        if latest_job['end_year'] and latest_job['end_year'] < current_year:
             gap_years = current_year - latest_job['end_year']
             if gap_years >= 1:
                 return {
-                    'status': 'Not Currently Employed',
+                    'status': 'Not Currently Employed ⚠️',
                     'gap': {
                         'from_year': latest_job['end_year'],
                         'to_year': current_year,
-                        'duration_years': gap_years
+                        'duration_years': gap_years,
+                        'description': f"Last Job ({latest_job['end_year']}) → Present ({current_year})"
                     }
                 }
         
-        return {'status': 'Currently Employed', 'gap': None}
+        return {'status': 'Currently Employed ✅', 'gap': None}
     
     def get_risk_indicator(self, total_gap_years):
         """Get risk indicator based on total gap duration"""
         if total_gap_years == 0:
             return "🟢 No Gap (0 Years)"
+        elif total_gap_years == 'Unknown':
+            return "🟡 Cannot Determine - Missing Date Information"
         elif total_gap_years <= 1:
             return "🟡 Minor Gap (Less than 1 Year)"
         elif total_gap_years <= 2:
@@ -244,16 +296,30 @@ class GapAnalyzer:
         
         # Calculate total gap
         total_gap_years = 0
+        gap_years_known = True
+        
         if edu_to_employment_gap:
-            total_gap_years += edu_to_employment_gap['duration_years']
+            if edu_to_employment_gap.get('duration_years') == 'Unknown':
+                gap_years_known = False
+            else:
+                total_gap_years += edu_to_employment_gap['duration_years']
+        
         for gap in employment_gaps:
             total_gap_years += gap['duration_years']
+        
         for gap in career_breaks:
-            total_gap_years += gap['duration_years']
+            if gap.get('duration_years') == 'Unknown':
+                gap_years_known = False
+            elif isinstance(gap.get('duration_years'), (int, float)):
+                total_gap_years += gap['duration_years']
+        
         if current_status.get('gap'):
             total_gap_years += current_status['gap']['duration_years']
         
-        total_gap_years = round(total_gap_years, 1)
+        if not gap_years_known:
+            total_gap_years = 'Unknown'
+        else:
+            total_gap_years = round(total_gap_years, 1)
         
         result = {
             'current_status': current_status['status'],
@@ -275,18 +341,18 @@ class GapAnalyzer:
 if __name__ == "__main__":
     analyzer = GapAnalyzer()
     
+    # Test with sample data
     education_raw = [
         "B.Tech in Computer Science (2017 - 2022) XYZ University"
     ]
     
     experience_raw = [
-        "Career Break (2023 - 2024) Focused on upskilling in Python, AWS, and Generative AI",
-        "GenAI Developer (2025 - Present) Built AI-powered resume analyzer applications"
+        "Career Break (2023 - 2024) Focused on upskilling",
+        "GenAI Developer (2025 - Present) Built AI applications"
     ]
     
     result = analyzer.analyze_complete_gaps(education_raw, experience_raw)
     print("\n" + "=" * 50)
     print("FINAL RESULT:")
     print("=" * 50)
-    import json
     print(json.dumps(result, indent=2))
