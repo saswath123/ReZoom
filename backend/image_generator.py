@@ -7,6 +7,40 @@ def safe_str(value):
     """Convert None to empty string safely"""
     return str(value) if value is not None else ""
 
+def get_font(size, bold=False):
+    """Get font compatible with Linux (Vercel) and Mac - preserves all features"""
+    # Linux/Vercel font paths
+    linux_fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-Regular.ttf",
+    ]
+    linux_bold_fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf",
+    ]
+    # Mac font paths (fallback)
+    mac_fonts = [
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Arial.ttf",
+    ]
+    
+    paths = linux_bold_fonts if bold else linux_fonts
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except:
+            continue
+    
+    for path in mac_fonts:
+        try:
+            return ImageFont.truetype(path, size)
+        except:
+            continue
+    
+    return ImageFont.load_default()
+
 def wrap_text(draw, text, font, max_width):
     """Wrap text to fit within max_width"""
     if not text:
@@ -59,10 +93,7 @@ def create_professional_avatar(draw, x, y, size, name, gender="neutral"):
     if not initials:
         initials = "P"
     
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", size // 2)
-    except:
-        font = ImageFont.load_default()
+    font = get_font(size // 2, bold=True)
     
     bbox = draw.textbbox((0, 0), initials, font=font)
     text_width = bbox[2] - bbox[0]
@@ -78,13 +109,7 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
     if not safe_text:
         return y
     
-    try:
-        if bold:
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-        else:
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-    except:
-        font = ImageFont.load_default()
+    font = get_font(font_size, bold=bold)
     
     lines = wrap_text(draw, safe_text, font, width)
     
@@ -105,10 +130,19 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
     return current_y
 
 def generate_resume_image(data, gap_analysis, output_path):
-    """Generate professional resume image - FORCE PROFESSIONAL TEMPLATE"""
+    """Generate professional resume image - SINGLE ENTRY POINT"""
     
-    # TEMPORARY: Force professional template for debugging
-    return generate_professional_resume_template(data, gap_analysis, output_path)
+    red_flags = data.get('red_flags', {})
+    quality_score = data.get('resume_quality_score', 75)
+    
+    # Route to appropriate template based on quality score
+    if quality_score < 30:
+        return generate_worst_resume_template(data, gap_analysis, output_path)
+    elif quality_score < 50:
+        return generate_poor_resume_template(data, gap_analysis, output_path)
+    else:
+        return generate_professional_resume_template(data, gap_analysis, output_path)
+
 
 def generate_worst_resume_template(data, gap_analysis, output_path):
     """Generate a 'Worst Resume' warning template"""
@@ -124,16 +158,10 @@ def generate_worst_resume_template(data, gap_analysis, output_path):
     WHITE = (255, 255, 255)
     GRAY = (100, 100, 100)
     
-    try:
-        font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 72)
-        font_heading = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 36)
-        font_body = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
-        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 18)
-    except:
-        font_title = ImageFont.load_default()
-        font_heading = ImageFont.load_default()
-        font_body = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+    font_title = get_font(72, bold=True)
+    font_heading = get_font(36, bold=True)
+    font_body = get_font(24)
+    font_small = get_font(18)
     
     draw.rectangle([0, 0, width, 120], fill=RED)
     draw.text((width//2 - 200, 35), "VERY POOR QUALITY RESUME", fill=WHITE, font=font_title)
@@ -207,16 +235,10 @@ def generate_poor_resume_template(data, gap_analysis, output_path):
     WHITE = (255, 255, 255)
     GRAY = (100, 100, 100)
     
-    try:
-        font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 52)
-        font_heading = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
-        font_body = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 20)
-        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
-    except:
-        font_title = ImageFont.load_default()
-        font_heading = ImageFont.load_default()
-        font_body = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+    font_title = get_font(52, bold=True)
+    font_heading = get_font(28, bold=True)
+    font_body = get_font(20)
+    font_small = get_font(16)
     
     draw.rectangle([0, 0, width, 100], fill=ORANGE)
     draw.text((width//2 - 180, 30), "POOR QUALITY RESUME", fill=WHITE, font=font_title)
@@ -271,6 +293,15 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     def inches_to_pixels(inches):
         return int(inches * 192)
+    
+    # Fonts using Linux-compatible get_font
+    font_title = get_font(48, bold=True)
+    font_heading = get_font(28, bold=True)
+    font_body = get_font(24)
+    font_small = get_font(22)
+    font_bold = get_font(24, bold=True)
+    font_large = get_font(52, bold=True)
+    font_footer = get_font(12)
     
     sidebar_width = inches_to_pixels(3)
     draw.rectangle([0, 0, sidebar_width, height], fill=COLOR_LIGHT_GRAY)
@@ -423,21 +454,11 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     draw.ellipse([badge_x, badge_y, badge_x + badge_size, badge_y + badge_size], fill=score_color)
     
-    try:
-        font_large = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 52)
-    except:
-        font_large = ImageFont.load_default()
-    
     bbox = draw.textbbox((0, 0), str(fit_score), font=font_large)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
     draw.text((badge_x + (badge_size - text_width) // 2, badge_y + (badge_size - text_height) // 2 - 10), 
               str(fit_score), fill=COLOR_WHITE, font=font_large)
-    
-    try:
-        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-    except:
-        font_small = ImageFont.load_default()
     
     bbox = draw.textbbox((0, 0), "FIT SCORE", font=font_small)
     text_width = bbox[2] - bbox[0]
@@ -446,11 +467,6 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     footer_y = height - inches_to_pixels(0.3)
     footer_text = f"AI Resume Intelligence Report - Generated {datetime.now().strftime('%B %d, %Y')}"
-    
-    try:
-        font_footer = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 12)
-    except:
-        font_footer = ImageFont.load_default()
     
     bbox = draw.textbbox((0, 0), footer_text, font=font_footer)
     text_width = bbox[2] - bbox[0]
