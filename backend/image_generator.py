@@ -105,19 +105,10 @@ def add_text_box(draw, x, y, width, height, text, font_size=11,
     return current_y
 
 def generate_resume_image(data, gap_analysis, output_path):
-    """Generate professional resume image - SINGLE ENTRY POINT"""
+    """Generate professional resume image - FORCE PROFESSIONAL TEMPLATE"""
     
-    red_flags = data.get('red_flags', {})
-    quality_score = data.get('resume_quality_score', 75)
-    
-    # Route to appropriate template based on quality score
-    if quality_score < 30:
-        return generate_worst_resume_template(data, gap_analysis, output_path)
-    elif quality_score < 50:
-        return generate_poor_resume_template(data, gap_analysis, output_path)
-    else:
-        return generate_professional_resume_template(data, gap_analysis, output_path)
-
+    # TEMPORARY: Force professional template for debugging
+    return generate_professional_resume_template(data, gap_analysis, output_path)
 
 def generate_worst_resume_template(data, gap_analysis, output_path):
     """Generate a 'Worst Resume' warning template"""

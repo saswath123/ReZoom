@@ -84,50 +84,31 @@ def calculate_fit_score(structured_data, extracted_text):
 
 
 def calculate_quality_score(structured_data, extracted_text):
-    """Calculate RESUME QUALITY score - based on professionalism only"""
+    """Calculate RESUME QUALITY score - more strict"""
     resume_lower = extracted_text.lower()
     score = 100
     
-    unprofessional_phrases = ['bored', 'urgently', 'please hire', 'genius', 'can do any job']
-    for phrase in unprofessional_phrases:
-        if phrase in resume_lower:
-            score -= 25
-            break
+    # Deductions
+    if 'gap' in resume_lower or 'break' in resume_lower:
+        score -= 15  # Career gaps detected
     
-    irrelevant_skills = ['whatsapp', 'instagram', 'youtube', 'gaming', 'sleeping', 'tiktok']
-    for skill in irrelevant_skills:
-        if skill in resume_lower:
-            score -= 20
-            break
-    
-    email = structured_data.get('email', '')
-    phone = structured_data.get('phone', '')
-    has_email = email not in [None, '', 'Not Provided', 'Not found']
-    has_phone = phone not in [None, '', 'Not Provided', 'Not found']
-    if not has_email or not has_phone:
-        score -= 15
-    
+    # Check for missing dates
+    import re
     has_years = bool(re.search(r'\b(19[0-9]{2}|20[0-2][0-9])\b', extracted_text))
     if not has_years:
         score -= 15
     
+    # Check for employment gaps in data
     experiences = structured_data.get('latest_3_experiences', [])
-    if not experiences:
-        score -= 35
+    if len(experiences) < 3:
+        score -= 10
     
-    vague_phrases = ['worked in many companies', 'don\'t remember', 'did many things']
-    for phrase in vague_phrases:
-        if phrase in resume_lower:
-            score -= 15
-            break
-    
-    education = structured_data.get('education', {})
-    has_degree = education.get('degree') not in [None, '', 'Not Specified']
-    if not has_degree:
+    # Check for education completeness
+    edu = structured_data.get('education', {})
+    if not edu.get('year') or edu.get('year') == 'Not Specified':
         score -= 10
     
     return max(0, min(100, score))
-
 
 def get_quality_verdict(score):
     if score >= 90:
@@ -195,6 +176,10 @@ def upload_resume():
         education_raw = structured_data.get('education_raw', [])
         experience_raw = structured_data.get('experience_raw', [])
         gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
+
+        # After getting structured_data, add this debug
+        print(f"Quality Score: {quality_score}")
+        print(f"Will use template: {'professional' if quality_score >= 50 else 'poor' if quality_score >= 30 else 'worst'}")
         
         # Generate PNG
         png_filename = f"Resume_{structured_data.get('name', 'Candidate')}_{unique_id}.png"
