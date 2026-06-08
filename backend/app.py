@@ -32,11 +32,11 @@ def allowed_file(filename):
 # ============================================================
 
 def calculate_fit_score(structured_data, extracted_text):
-    """
-    Calculate JOB FIT score - based on skills, experience, role match only.
-    NOT affected by email, phone, formatting, or unprofessional language.
-    """
+    """Calculate JOB FIT score - based on skills, experience, role match only"""
     resume_lower = extracted_text.lower()
+    
+    print("=" * 50)
+    print("Calculating Fit Score:")
     
     # 1. Skills Match (40% weight)
     technical_skills = [
@@ -48,6 +48,7 @@ def calculate_fit_score(structured_data, extracted_text):
     ]
     found_skills = sum(1 for skill in technical_skills if skill in resume_lower)
     skills_score = min(40, (found_skills / 8) * 40) if found_skills > 0 else 15
+    print(f"  Skills found: {found_skills} -> Score: {skills_score:.1f}/40")
     
     # 2. Experience Match (30% weight)
     exp_years = structured_data.get('total_experience_years', 0)
@@ -61,89 +62,122 @@ def calculate_fit_score(structured_data, extracted_text):
         exp_score = 12
     else:
         exp_score = 5
+    print(f"  Experience years: {exp_years} -> Score: {exp_score}/30")
     
     # 3. Role Alignment (20% weight)
     current_role = structured_data.get('current_role', '').lower()
-    senior_indicators = ['senior', 'lead', 'architect', 'manager', 'principal', 'staff']
+    senior_indicators = ['senior', 'lead', 'architect', 'manager', 'principal', 'staff', 'head']
     has_senior = any(word in current_role for word in senior_indicators)
     role_score = 20 if has_senior else 10
+    print(f"  Senior role: {has_senior} -> Score: {role_score}/20")
     
     # 4. Achievements Quality (10% weight)
     achievements = structured_data.get('latest_3_experiences', [])
     has_quantifiable = False
+    quantifiers = ['%', 'increased', 'reduced', 'saved', 'launched', 
+                  'built', 'created', 'improved', 'optimized', 'delivered',
+                  'million', 'thousand', 'percent', 'led', 'managed']
+    
     for exp in achievements:
         for resp in exp.get('responsibilities', []):
             resp_lower = resp.lower()
-            quantifiers = ['%', 'increased', 'reduced', 'saved', 'launched', 
-                          'built', 'created', 'improved', 'optimized', 'delivered',
-                          'million', 'thousand', 'percent', 'led', 'managed']
             if any(word in resp_lower for word in quantifiers):
                 has_quantifiable = True
                 break
         if has_quantifiable:
             break
     achievement_score = 10 if has_quantifiable else 5
+    print(f"  Quantifiable achievements: {has_quantifiable} -> Score: {achievement_score}/10")
     
     # Calculate final fit score
     final_score = int(skills_score + exp_score + role_score + achievement_score)
+    final_score = max(0, min(100, final_score))
+    print(f"Final Fit Score: {final_score}")
+    print("=" * 50)
     
-    # Cap at 0-100
-    return max(0, min(100, final_score))
-
+    return final_score
 
 def calculate_quality_score(structured_data, extracted_text):
-    """
-    Calculate RESUME QUALITY score - based on professionalism only.
-    Affected by: contact info, dates, language, formatting.
-    """
+    """Calculate RESUME QUALITY score - based on professionalism only"""
     resume_lower = extracted_text.lower()
     score = 100
     
-    # Penalty: Unprofessional language (max -25)
-    unprofessional_words = ['bored', 'urgently', 'please hire', 'genius', 
-                           'can do any job', 'hardworking', 'timepass']
-    for word in unprofessional_words:
-        if word in resume_lower:
-            score -= 20
+    print("=" * 50)
+    print("Calculating Quality Score:")
+    
+    # 1. Check for unprofessional language (-20 to -40)
+    unprofessional_phrases = [
+        'bored', 'urgently', 'please hire', 'genius', 'can do any job',
+        'hardworking', 'timepass', 'chilling', 'lazy'
+    ]
+    for phrase in unprofessional_phrases:
+        if phrase in resume_lower:
+            score -= 25
+            print(f"  - Unprofessional language detected: '{phrase}' (-25)")
             break
     
-    # Penalty: Missing contact info (-15)
-    has_email = structured_data.get('email') not in [None, 'Not Provided', 'Not found', '']
-    has_phone = structured_data.get('phone') not in [None, 'Not Provided', 'Not found', '']
-    if not has_email or not has_phone:
-        score -= 15
-    
-    # Penalty: Missing dates (-15)
-    has_years = bool(re.search(r'\b(19[0-9]{2}|20[0-2][0-9])\b', extracted_text))
-    if not has_years:
-        score -= 15
-    
-    # Penalty: No work experience (-35)
-    experiences = structured_data.get('latest_3_experiences', [])
-    if not experiences:
-        score -= 35
-    
-    # Penalty: Irrelevant skills (-20)
-    irrelevant_skills = ['whatsapp', 'instagram', 'youtube', 'gaming', 'sleeping', 'tiktok', 'facebook']
+    # 2. Check for irrelevant skills (-20)
+    irrelevant_skills = ['whatsapp', 'instagram', 'youtube', 'gaming', 'sleeping', 
+                         'tiktok', 'facebook', 'pubg', 'freefire', 'netflix']
     for skill in irrelevant_skills:
         if skill in resume_lower:
             score -= 20
+            print(f"  - Irrelevant skill detected: '{skill}' (-20)")
             break
     
-    # Penalty: Vague descriptions (-15)
-    vague_phrases = ['worked in many companies', 'don\'t remember', 'did many things', 'various tasks']
+    # 3. Check for missing contact info (-15)
+    email = structured_data.get('email', '')
+    phone = structured_data.get('phone', '')
+    has_email = email not in [None, '', 'Not Provided', 'Not found', 'Not specified']
+    has_phone = phone not in [None, '', 'Not Provided', 'Not found', 'Not specified']
+    
+    if not has_email or not has_phone:
+        score -= 15
+        print(f"  - Missing contact info: email={has_email}, phone={has_phone} (-15)")
+    
+    # 4. Check for missing dates (-15)
+    import re
+    has_years = bool(re.search(r'\b(19[0-9]{2}|20[0-2][0-9]|2030)\b', extracted_text))
+    if not has_years:
+        score -= 15
+        print(f"  - Missing dates in resume (-15)")
+    
+    # 5. Check for no work experience (-35)
+    experiences = structured_data.get('latest_3_experiences', [])
+    if not experiences or len(experiences) == 0:
+        score -= 35
+        print(f"  - No work experience documented (-35)")
+    
+    # 6. Check for vague descriptions (-15)
+    vague_phrases = [
+        'worked in many companies', 'don\'t remember', 'did many things',
+        'various tasks', 'responsible for', 'assisted with'
+    ]
     for phrase in vague_phrases:
         if phrase in resume_lower:
             score -= 15
+            print(f"  - Vague description detected (-15)")
             break
     
-    # Penalty: Incomplete education (-10)
-    edu = structured_data.get('education', {})
-    if not edu.get('degree') or edu.get('degree') == 'Not Specified':
+    # 7. Check for incomplete education (-10)
+    education = structured_data.get('education', {})
+    has_degree = education.get('degree') not in [None, '', 'Not Specified']
+    has_institution = education.get('institution') not in [None, '', 'Not Specified']
+    if not has_degree or not has_institution:
         score -= 10
+        print(f"  - Incomplete education section (-10)")
     
-    return max(0, min(100, score))
-
+    # 8. Check for poor formatting (-10)
+    if len(extracted_text) < 100:
+        score -= 10
+        print(f"  - Resume too short/poor formatting (-10)")
+    
+    # Ensure score is within bounds
+    final_score = max(0, min(100, score))
+    print(f"Final Quality Score: {final_score}")
+    print("=" * 50)
+    
+    return final_score
 
 def get_quality_verdict(score):
     """Get quality verdict based on score"""

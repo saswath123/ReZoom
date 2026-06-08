@@ -13,6 +13,7 @@ let currentImageUrl = null;
 let currentData = null;
 let currentPreviewImageUrl = null;
 let currentImageBlob = null;
+let currentPreviewFile = null;
 
 // Theme Management
 function initTheme() {
@@ -43,9 +44,60 @@ function toggleTheme() {
     updateThemeButton(newTheme);
 }
 
+// Helper Functions
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// File Selection Handler
+function setupFileSelection() {
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        const fileListDiv = document.getElementById('fileList');
+        const selectedFilesList = document.getElementById('selectedFilesList');
+        const previewBtn = document.getElementById('previewFileBtn');
+        
+        if (files.length > 0) {
+            fileListDiv.style.display = 'block';
+            selectedFilesList.innerHTML = '';
+            files.forEach(file => {
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fas fa-file-pdf"></i> ${file.name} (${formatFileSize(file.size)})`;
+                selectedFilesList.appendChild(li);
+            });
+            
+            if (files.length === 1) {
+                previewBtn.style.display = 'inline-flex';
+                currentPreviewFile = files[0];
+            } else {
+                previewBtn.style.display = 'none';
+            }
+        } else {
+            fileListDiv.style.display = 'none';
+            previewBtn.style.display = 'none';
+            closeFilePreview();
+        }
+    });
+}
+
 // Upload Area Interactions
 function setupUploadArea() {
-    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('click', (e) => {
+        if (e.target.closest('#previewFileBtn') || e.target.closest('#uploadBtn')) {
+            return;
+        }
+        fileInput.click();
+    });
     
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -63,18 +115,21 @@ function setupUploadArea() {
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             fileInput.files = files;
-            uploadResume();
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
         }
     });
     
     uploadBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        fileInput.click();
-    });
-    
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
+        const files = fileInput.files;
+        
+        if (files.length === 0) {
+            fileInput.click();
+        } else if (files.length === 1) {
             uploadResume();
+        } else if (files.length > 1) {
+            batchUploadResumes();
         }
     });
 }
@@ -113,7 +168,7 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Upload Resume Function
+// Single Resume Upload
 async function uploadResume() {
     if (!fileInput.files[0]) {
         showNotification('Please select a file first!', 'warning');
@@ -188,32 +243,211 @@ async function uploadResume() {
     }
 }
 
+// Batch Upload Resumes
+async function batchUploadResumes() {
+    const files = Array.from(fileInput.files);
+    
+    if (files.length === 0) {
+        showNotification('Please select at least one resume file!', 'warning');
+        return;
+    }
+    
+    if (files.length > 10) {
+        showNotification('Maximum 10 files allowed per batch!', 'error');
+        return;
+    }
+    
+    const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const invalidFiles = files.filter(f => !validTypes.includes(f.type));
+    
+    if (invalidFiles.length > 0) {
+        showNotification(`${invalidFiles.length} file(s) have invalid format. Use PDF or DOCX.`, 'error');
+        return;
+    }
+    
+    const batchProgress = document.getElementById('batchProgress');
+    const progressCount = document.getElementById('progressCount');
+    const progressFill = document.getElementById('batchProgressFill');
+    
+    batchProgress.style.display = 'block';
+    progressCount.textContent = `0 / ${files.length}`;
+    progressFill.style.width = '0%';
+    
+    const batchResults = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('resume', file);
+        
+        try {
+            const response = await fetch('http://127.0.0.1:5000/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                batchResults.push({
+                    name: file.name,
+                    candidateName: data.data.name,
+                    fitScore: data.fit_score,
+                    success: true,
+                    image_base64: data.image_base64,
+                    data: data.data,
+                    gap_analysis: data.gap_analysis
+                });
+            } else {
+                batchResults.push({
+                    name: file.name,
+                    success: false,
+                    error: data.error
+                });
+            }
+        } catch (error) {
+            batchResults.push({
+                name: file.name,
+                success: false,
+                error: error.message
+            });
+        }
+        
+        const completed = i + 1;
+        progressCount.textContent = `${completed} / ${files.length}`;
+        progressFill.style.width = `${(completed / files.length) * 100}%`;
+    }
+    
+    batchProgress.style.display = 'none';
+    displayBatchResults(batchResults);
+}
+
+// Display Batch Results
+function displayBatchResults(results) {
+    const batchSection = document.getElementById('batchResultsSection');
+    const resultsGrid = document.getElementById('batchResultsGrid');
+    const totalProcessed = document.getElementById('totalProcessed');
+    const totalSuccess = document.getElementById('totalSuccess');
+    const totalFailed = document.getElementById('totalFailed');
+    const avgFitScore = document.getElementById('avgFitScore');
+    
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    const avgScore = results.filter(r => r.success).reduce((sum, r) => sum + (r.fitScore || 0), 0) / (successCount || 1);
+    
+    totalProcessed.textContent = results.length;
+    totalSuccess.textContent = successCount;
+    totalFailed.textContent = failCount;
+    avgFitScore.textContent = avgScore.toFixed(1);
+    
+    resultsGrid.innerHTML = '';
+    
+    results.forEach((result, index) => {
+        const card = document.createElement('div');
+        card.className = 'batch-result-card';
+        
+        if (result.success) {
+            card.innerHTML = `
+                <div class="result-header">
+                    <i class="fas fa-check-circle success-icon"></i>
+                    <span class="result-name">${escapeHtml(result.candidateName || result.name)}</span>
+                    <span class="fit-score-badge">${result.fitScore || 0}</span>
+                </div>
+                <div class="result-preview">
+                    <img src="data:image/png;base64,${result.image_base64}" alt="Preview" 
+                         onclick="viewBatchResume(${index})">
+                </div>
+                <div class="result-actions">
+                    <button class="view-btn" onclick="viewBatchResume(${index})">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                    <button class="download-btn" onclick="downloadBatchResume(${index})">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+            `;
+        } else {
+            card.innerHTML = `
+                <div class="result-header">
+                    <i class="fas fa-times-circle error-icon"></i>
+                    <span class="result-name">${escapeHtml(result.name)}</span>
+                </div>
+                <div class="result-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>${escapeHtml(result.error)}</span>
+                </div>
+            `;
+        }
+        
+        resultsGrid.appendChild(card);
+    });
+    
+    batchSection.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+// View Batch Resume
+window.viewBatchResume = function(index) {
+    const result = batchResults[index];
+    if (result && result.success && result.image_base64) {
+        const imageUrl = `data:image/png;base64,${result.image_base64}`;
+        const byteCharacters = atob(result.image_base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const imageBlob = new Blob([byteArray], { type: 'image/png' });
+        showPreview(imageUrl, imageBlob);
+    }
+};
+
+// Download Batch Resume
+window.downloadBatchResume = function(index) {
+    const result = batchResults[index];
+    if (result && result.success && result.image_base64) {
+        const link = document.createElement('a');
+        link.href = `data:image/png;base64,${result.image_base64}`;
+        link.download = `${result.candidateName || 'resume'}_${index + 1}.png`;
+        link.click();
+        showNotification('Resume downloaded!', 'success');
+    }
+};
+
+// Close Batch Results
+function closeBatchResults() {
+    const batchSection = document.getElementById('batchResultsSection');
+    if (batchSection) {
+        batchSection.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        fileInput.value = '';
+        document.getElementById('fileList').style.display = 'none';
+    }
+}
+
 // Display Results
 function displayResults(data) {
-    const resumeData = data.data;  // ← MUST BE FIRST!
+    const resumeData = data.data;
     const gapAnalysis = data.gap_analysis;
     const fitScore = resumeData.fit_score || 85;
     
-    // ===== 1. UPDATE FIT SCORE =====
     updateScoreCircle(fitScore);
     
     const scoreStatus = document.getElementById('scoreStatus');
     if (fitScore >= 80) {
-        scoreStatus.textContent = '🌟 Excellent Match';
+        scoreStatus.textContent = 'Excellent Match';
         scoreStatus.style.color = '#10b981';
     } else if (fitScore >= 60) {
-        scoreStatus.textContent = '👍 Good Potential';
+        scoreStatus.textContent = 'Good Potential';
         scoreStatus.style.color = '#f59e0b';
     } else {
-        scoreStatus.textContent = '📈 Room for Growth';
+        scoreStatus.textContent = 'Room for Growth';
         scoreStatus.style.color = '#ef4444';
     }
     
-    // ===== 2. UPDATE STATS =====
     document.getElementById('strengthCount').textContent = (resumeData.strengths || []).length;
     document.getElementById('expYears').textContent = resumeData.total_experience_years || '0';
     
-    // ===== 3. UPDATE SKILLS =====
     const skillsList = document.getElementById('skillsList');
     skillsList.innerHTML = '';
     (resumeData.skills || []).slice(0, 12).forEach(skill => {
@@ -223,7 +457,6 @@ function displayResults(data) {
         skillsList.appendChild(skillTag);
     });
     
-    // ===== 4. UPDATE STRENGTHS =====
     const strengthsList = document.getElementById('strengthsList');
     strengthsList.innerHTML = '';
     (resumeData.strengths || []).forEach(strength => {
@@ -232,7 +465,6 @@ function displayResults(data) {
         strengthsList.appendChild(li);
     });
     
-    // ===== 5. UPDATE IMPROVEMENTS =====
     const improvementsList = document.getElementById('improvementsList');
     improvementsList.innerHTML = '';
     (resumeData.areas_for_improvement || []).forEach(improvement => {
@@ -241,22 +473,18 @@ function displayResults(data) {
         improvementsList.appendChild(li);
     });
     
-    // ===== 6. UPDATE CANDIDATE INFO =====
     document.getElementById('candidateName').textContent = resumeData.name || 'Candidate';
     document.getElementById('candidateRole').textContent = resumeData.current_role || 'Professional';
     document.getElementById('candidateLocation').textContent = resumeData.location || 'Not specified';
     document.getElementById('candidateEmail').textContent = resumeData.email || 'Not provided';
     
-    // Add phone display
     const candidatePhone = document.getElementById('candidatePhone');
     if (candidatePhone) {
         candidatePhone.textContent = resumeData.phone || 'Not provided';
     }
     
-    // ===== 7. UPDATE PROFESSIONAL SUMMARY =====
     document.getElementById('professionalSummary').textContent = resumeData.professional_summary || 'No summary available.';
     
-    // ===== 8. UPDATE EXPERIENCE =====
     const experienceList = document.getElementById('experienceList');
     experienceList.innerHTML = '';
     (resumeData.latest_3_experiences || []).forEach(exp => {
@@ -273,7 +501,6 @@ function displayResults(data) {
         experienceList.appendChild(expDiv);
     });
     
-    // ===== 9. UPDATE CERTIFICATIONS =====
     const certifications = resumeData.certifications || [];
     if (certifications.length > 0) {
         document.getElementById('certificationsCard').style.display = 'block';
@@ -287,7 +514,6 @@ function displayResults(data) {
         });
     }
     
-    // ===== 10. UPDATE EDUCATION =====
     const education = resumeData.education || {};
     const educationInfo = document.getElementById('educationInfo');
     educationInfo.innerHTML = `
@@ -295,7 +521,7 @@ function displayResults(data) {
         <p>${education.institution || 'Institution'} | ${education.year || 'Year'}</p>
     `;
     
-    // ===== 11. UPDATE RESUME QUALITY SCORE (NEW) =====
+    // Resume Quality Score
     if (resumeData.resume_quality_score) {
         const qualityValue = document.getElementById('qualityValue');
         const qualityVerdict = document.getElementById('qualityVerdict');
@@ -312,13 +538,11 @@ function displayResults(data) {
             qualityVerdict.className = `quality-verdict ${qualityVerdictText.toLowerCase().replace(' ', '-')}`;
         }
         
-        // Update quality circle
         if (qualityCircle) {
             const angle = (qualityScore / 100) * 360;
             qualityCircle.style.background = `conic-gradient(var(--accent-primary) 0deg ${angle}deg, var(--bg-hover) ${angle}deg 360deg)`;
         }
         
-        // Display observations
         if (qualityObservations) {
             const observations = resumeData.quality_observations || [];
             qualityObservations.innerHTML = '';
@@ -330,7 +554,7 @@ function displayResults(data) {
         }
     }
     
-    // ===== 12. UPDATE RED FLAGS (NEW) =====
+    // Red Flags
     const redFlags = resumeData.red_flags || {};
     const redFlagsCard = document.getElementById('redFlagsCard');
     const redFlagsList = document.getElementById('redFlagsList');
@@ -366,24 +590,22 @@ function displayResults(data) {
         redFlagsCard.style.display = 'none';
     }
     
-    // ===== 13. UPDATE GAP ANALYSIS =====
+    // Gap Analysis
     if (gapAnalysis) {
         const gapCard = document.getElementById('gapAnalysisCard');
         if (gapCard) {
             gapCard.style.display = 'block';
             document.getElementById('gapCurrentStatus').textContent = gapAnalysis.current_status || 'Unknown';
             
-            // Education Gap
             const eduGap = gapAnalysis.education_to_employment_gap;
             const eduGapRow = document.getElementById('eduGapRow');
             if (eduGap && eduGapRow) {
-                document.getElementById('eduGapText').innerHTML = `• ${eduGap.description}: ${eduGap.duration_years} Year${eduGap.duration_years !== 1 ? 's' : ''}`;
+                document.getElementById('eduGapText').innerHTML = `${eduGap.description}: ${eduGap.duration_years} Year${eduGap.duration_years !== 1 ? 's' : ''}`;
                 eduGapRow.style.display = 'flex';
             } else if (eduGapRow) {
                 eduGapRow.style.display = 'none';
             }
             
-            // Employment Gaps
             const empGaps = gapAnalysis.employment_gaps || [];
             const empGapsList = document.getElementById('empGapsList');
             if (empGaps.length > 0 && empGapsList) {
@@ -391,7 +613,7 @@ function displayResults(data) {
                 empGaps.forEach(gap => {
                     const div = document.createElement('div');
                     div.className = 'gap-item';
-                    div.innerHTML = `• ${gap.description}: ${gap.duration_years} Year${gap.duration_years !== 1 ? 's' : ''}`;
+                    div.innerHTML = `${gap.description}: ${gap.duration_years} Year${gap.duration_years !== 1 ? 's' : ''}`;
                     empGapsList.appendChild(div);
                 });
                 document.getElementById('empGapsRow').style.display = 'block';
@@ -399,7 +621,6 @@ function displayResults(data) {
                 document.getElementById('empGapsRow').style.display = 'none';
             }
             
-            // Career Breaks
             const careerBreaks = gapAnalysis.career_breaks || [];
             const careerBreaksList = document.getElementById('careerBreaksList');
             if (careerBreaks.length > 0 && careerBreaksList) {
@@ -407,7 +628,7 @@ function displayResults(data) {
                 careerBreaks.forEach(breakItem => {
                     const div = document.createElement('div');
                     div.className = 'gap-item';
-                    div.innerHTML = `• ${breakItem.description}: ${breakItem.duration_years} Year${breakItem.duration_years !== 1 ? 's' : ''}`;
+                    div.innerHTML = `${breakItem.description}: ${breakItem.duration_years} Year${breakItem.duration_years !== 1 ? 's' : ''}`;
                     careerBreaksList.appendChild(div);
                 });
                 document.getElementById('careerBreaksRow').style.display = 'block';
@@ -415,29 +636,26 @@ function displayResults(data) {
                 document.getElementById('careerBreaksRow').style.display = 'none';
             }
             
-            // Current Gap
             const currentGap = gapAnalysis.current_employment_gap;
             const currentGapRow = document.getElementById('currentGapRow');
             if (currentGap && currentGapRow) {
-                document.getElementById('currentGapText').innerHTML = `• ${currentGap.from_year} to ${currentGap.to_year}: ${currentGap.duration_years} Year${currentGap.duration_years !== 1 ? 's' : ''}`;
+                document.getElementById('currentGapText').innerHTML = `${currentGap.from_year} to ${currentGap.to_year}: ${currentGap.duration_years} Year${currentGap.duration_years !== 1 ? 's' : ''}`;
                 currentGapRow.style.display = 'flex';
             } else if (currentGapRow) {
                 currentGapRow.style.display = 'none';
             }
             
-            // Total Gap
             const totalGap = gapAnalysis.total_gap_years || 0;
             document.getElementById('totalGap').textContent = `${totalGap} Year${totalGap !== 1 ? 's' : ''}`;
             
-            // Risk Indicator
-            const riskText = gapAnalysis.risk_indicator || '🟢 No Gap (0 Years)';
+            const riskText = gapAnalysis.risk_indicator || 'No Gap (0 Years)';
             const riskElement = document.getElementById('riskIndicator');
             if (riskElement) {
                 riskElement.textContent = riskText;
-                if (riskText.includes('🟢')) riskElement.style.color = '#10b981';
-                else if (riskText.includes('🟡')) riskElement.style.color = '#f59e0b';
-                else if (riskText.includes('🟠')) riskElement.style.color = '#f97316';
-                else if (riskText.includes('🔴')) riskElement.style.color = '#ef4444';
+                if (riskText.includes('No Gap')) riskElement.style.color = '#10b981';
+                else if (riskText.includes('Minor')) riskElement.style.color = '#f59e0b';
+                else if (riskText.includes('Moderate')) riskElement.style.color = '#f97316';
+                else if (riskText.includes('Significant')) riskElement.style.color = '#ef4444';
             }
         }
     }
@@ -461,13 +679,76 @@ function updateScoreCircle(score) {
     }, 20);
 }
 
+// File Preview Functions
+async function previewSelectedFile() {
+    const file = fileInput.files[0];
+    if (!file) {
+        showNotification('No file selected to preview', 'warning');
+        return;
+    }
+    
+    const previewContainer = document.getElementById('filePreviewContainer');
+    const previewContent = document.getElementById('filePreviewContent');
+    const previewFileName = document.getElementById('previewFileName');
+    const previewFileSize = document.getElementById('previewFileSize');
+    
+    previewContainer.style.display = 'block';
+    previewContent.innerHTML = '<div class="preview-loading"><i class="fas fa-spinner fa-pulse"></i><span>Loading preview...</span></div>';
+    
+    previewFileName.textContent = file.name;
+    previewFileSize.textContent = formatFileSize(file.size);
+    
+    try {
+        const fileType = file.type;
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        
+        if (fileType === 'application/pdf' || fileExtension === 'pdf') {
+            const fileUrl = URL.createObjectURL(file);
+            previewContent.innerHTML = `
+                <iframe src="${fileUrl}" style="width:100%; height:400px; border:none; border-radius:8px;"></iframe>
+            `;
+        } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileExtension === 'docx') {
+            previewContent.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-file-word" style="font-size: 64px; color: #2b5797; margin-bottom: 16px; display: block;"></i>
+                    <p><strong>DOCX File Preview</strong></p>
+                    <p>Click "Upload & Process" to analyze this resume.</p>
+                </div>
+            `;
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const previewText = text.substring(0, 2000);
+                previewContent.innerHTML = `
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0; padding: 16px;">${escapeHtml(previewText)}${text.length > 2000 ? '\n\n... (file truncated)' : ''}</pre>
+                `;
+            };
+            reader.readAsText(file.slice(0, 2000));
+        }
+    } catch (error) {
+        console.error('Preview error:', error);
+        previewContent.innerHTML = `<div class="preview-loading"><i class="fas fa-exclamation-triangle"></i><span>Could not preview this file.</span></div>`;
+    }
+}
+
+function closeFilePreview() {
+    const previewContainer = document.getElementById('filePreviewContainer');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+    }
+    const previewContent = document.getElementById('filePreviewContent');
+    if (previewContent) {
+        previewContent.innerHTML = '';
+    }
+}
+
 // Preview Modal Functions
 function showPreview(imageUrl, imageBlob) {
     const modal = document.getElementById('previewModal');
     const previewImg = document.getElementById('previewImage');
     
     if (!modal || !previewImg) {
-        console.error('Preview modal not found');
         showNotification('Preview not available', 'error');
         return;
     }
@@ -513,7 +794,6 @@ function downloadFromPreview() {
     }
 }
 
-// Download Image (shows preview first)
 function downloadImage() {
     if (currentImageUrl) {
         if (currentImageBlob) {
@@ -526,7 +806,6 @@ function downloadImage() {
                     showPreview(currentImageUrl, blob);
                 })
                 .catch(err => {
-                    console.error('Error fetching image:', err);
                     showNotification('Error loading preview', 'error');
                 });
         }
@@ -535,7 +814,6 @@ function downloadImage() {
     }
 }
 
-// Close Results
 function closeResultsHandler() {
     resultsSection.style.display = 'none';
     document.body.style.overflow = 'auto';
@@ -543,26 +821,19 @@ function closeResultsHandler() {
     currentImageUrl = null;
     currentImageBlob = null;
     fileInput.value = '';
+    document.getElementById('fileList').style.display = 'none';
+    closeFilePreview();
 }
 
-// Setup Preview Modal Event Listeners
 function setupPreviewModal() {
     const previewCloseBtn = document.getElementById('previewCloseBtn');
     const previewCancelBtn = document.getElementById('previewCancelBtn');
     const previewDownloadBtn = document.getElementById('previewDownloadBtn');
     const modal = document.getElementById('previewModal');
     
-    if (previewCloseBtn) {
-        previewCloseBtn.addEventListener('click', closePreview);
-    }
-    
-    if (previewCancelBtn) {
-        previewCancelBtn.addEventListener('click', closePreview);
-    }
-    
-    if (previewDownloadBtn) {
-        previewDownloadBtn.addEventListener('click', downloadFromPreview);
-    }
+    if (previewCloseBtn) previewCloseBtn.addEventListener('click', closePreview);
+    if (previewCancelBtn) previewCancelBtn.addEventListener('click', closePreview);
+    if (previewDownloadBtn) previewDownloadBtn.addEventListener('click', downloadFromPreview);
     
     if (modal) {
         modal.addEventListener('click', (e) => {
@@ -604,13 +875,40 @@ document.head.appendChild(style);
 themeToggle.addEventListener('click', toggleTheme);
 downloadBtn.addEventListener('click', downloadImage);
 closeResults.addEventListener('click', closeResultsHandler);
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && resultsSection.style.display === 'block') {
         closeResultsHandler();
     }
 });
 
+const previewFileBtn = document.getElementById('previewFileBtn');
+if (previewFileBtn) {
+    previewFileBtn.addEventListener('click', previewSelectedFile);
+}
+
+const closePreviewBtn = document.getElementById('closePreviewBtn');
+if (closePreviewBtn) {
+    closePreviewBtn.addEventListener('click', closeFilePreview);
+}
+
+const downloadAllBtn = document.getElementById('downloadAllBtn');
+if (downloadAllBtn) {
+    downloadAllBtn.addEventListener('click', () => {
+        showNotification('ZIP download feature coming soon', 'info');
+    });
+}
+
+const closeBatchResultsBtn = document.getElementById('closeBatchResults');
+if (closeBatchResultsBtn) {
+    closeBatchResultsBtn.addEventListener('click', closeBatchResults);
+}
+
 // Initialize
 initTheme();
+setupFileSelection();
 setupUploadArea();
 setupPreviewModal();
+
+// Store batch results globally
+let batchResults = [];
