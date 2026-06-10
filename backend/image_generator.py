@@ -1,44 +1,18 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 from datetime import datetime
+import math
 
 def safe_str(value):
     """Convert None to empty string safely"""
     return str(value) if value is not None else ""
-
-
-def get_font(size, bold=False):
-    """Get Arial font - works on Mac, Linux, Windows, Vercel"""
-    arial_paths = [
-        "/System/Library/Fonts/Arial.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ]
-    arial_bold_paths = [
-        "/System/Library/Fonts/Arial Bold.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]
-    
-    paths = arial_bold_paths if bold else arial_paths
-    
-    for path in paths:
-        try:
-            return ImageFont.truetype(path, size)
-        except:
-            continue
-    
-    return ImageFont.load_default()
-
 
 def wrap_text(draw, text, font, max_width):
     """Wrap text to fit within max_width"""
     if not text:
         return []
     
-    words = text.split()
+    words = safe_str(text).split()
     lines = []
     current_line = []
     
@@ -67,208 +41,429 @@ def wrap_text(draw, text, font, max_width):
     
     return lines
 
+def create_professional_avatar(draw, x, y, size, name, gender="neutral"):
+    """Draw a professional avatar with initials"""
+    
+    if gender == "male":
+        bg_color = (52, 73, 94)
+    elif gender == "female":
+        bg_color = (192, 57, 43)
+    else:
+        bg_color = (41, 128, 185)
+    
+    draw.ellipse([x, y, x + size, y + size], fill=bg_color)
+    draw.ellipse([x + 3, y + 3, x + size - 3, y + size - 3], outline=(255, 255, 255), width=2)
+    
+    safe_name = safe_str(name)
+    initials = ''.join([word[0].upper() for word in safe_name.split()[:2] if word])
+    if not initials:
+        initials = "P"
+    
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", size // 2)
+    except:
+        font = ImageFont.load_default()
+    
+    bbox = draw.textbbox((0, 0), initials, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    draw.text((x + (size - text_width) // 2, y + (size - text_height) // 2), 
+              initials, fill=(255, 255, 255), font=font)
+
+def add_text_box(draw, x, y, width, height, text, font_size=11, 
+                 bold=False, color=(51, 51, 51), align="left"):
+    """Add text with proper positioning"""
+    
+    safe_text = safe_str(text)
+    if not safe_text:
+        return y
+    
+    try:
+        if bold:
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        else:
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+    except:
+        font = ImageFont.load_default()
+    
+    lines = wrap_text(draw, safe_text, font, width)
+    
+    current_y = y
+    for line in lines:
+        if align == "center":
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            draw.text((x + (width - text_width) // 2, current_y), line, fill=color, font=font)
+        elif align == "right":
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            draw.text((x + width - text_width, current_y), line, fill=color, font=font)
+        else:
+            draw.text((x, current_y), line, fill=color, font=font)
+        current_y += font_size + 4
+    
+    return current_y
 
 def generate_resume_image(data, gap_analysis, output_path):
-    """Generate professional resume image"""
-    return generate_professional_template(data, gap_analysis, output_path)
+    """Generate professional resume image - SINGLE ENTRY POINT"""
+    
+    red_flags = data.get('red_flags', {})
+    quality_score = data.get('resume_quality_score', 75)
+    
+    # Route to appropriate template based on quality score
+    if quality_score < 30:
+        return generate_worst_resume_template(data, gap_analysis, output_path)
+    elif quality_score < 50:
+        return generate_poor_resume_template(data, gap_analysis, output_path)
+    else:
+        return generate_professional_resume_template(data, gap_analysis, output_path)
 
 
-def generate_professional_template(data, gap_analysis, output_path):
-    """Generate resume exactly like reference image"""
+def generate_worst_resume_template(data, gap_analysis, output_path):
+    """Generate a 'Worst Resume' warning template"""
     
     width = 1920
-    height = 1350
+    height = 1080
     img = Image.new('RGB', (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
     
-    # Colors
-    NAVY = (26, 35, 80)
-    GOLD = (212, 175, 55)
-    GRAY_DARK = (51, 51, 51)
-    GRAY_MEDIUM = (102, 102, 102)
+    RED = (220, 38, 38)
+    DARK_RED = (180, 20, 20)
+    ORANGE = (249, 115, 22)
     WHITE = (255, 255, 255)
-    LIGHT_GRAY = (248, 248, 248)
+    GRAY = (100, 100, 100)
     
-    # Fonts
-    FONT_NAME = get_font(42, bold=True)
-    FONT_ROLE = get_font(24, bold=True)
-    FONT_SECTION = get_font(20, bold=True)
-    FONT_SUBHEADING = get_font(18, bold=True)
-    FONT_BODY = get_font(15)
-    FONT_SMALL = get_font(13)
-    FONT_FOOTER = get_font(11)
+    try:
+        font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 72)
+        font_heading = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 36)
+        font_body = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 18)
+    except:
+        font_title = ImageFont.load_default()
+        font_heading = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_small = ImageFont.load_default()
     
-    # ===== LEFT PANEL (Light Gray) =====
-    panel_width = 480
-    draw.rectangle([0, 0, panel_width, height], fill=LIGHT_GRAY)
+    draw.rectangle([0, 0, width, 120], fill=RED)
+    draw.text((width//2 - 200, 35), "VERY POOR QUALITY RESUME", fill=WHITE, font=font_title)
     
-    # Name
-    name = safe_str(data.get('name', 'NEHA GUPTA')).upper()
-    draw.text((40, 50), name, fill=NAVY, font=FONT_NAME)
+    quality_score = data.get('resume_quality_score', 15)
+    draw.ellipse([width-150, 20, width-30, 140], fill=DARK_RED)
+    draw.text((width-115, 60), str(quality_score), fill=WHITE, font=font_title)
+    draw.text((width-120, 105), "QUALITY", fill=WHITE, font=font_small)
     
-    # Role
-    role = safe_str(data.get('current_role', 'Product Manager | SaaS Specialist'))
-    draw.text((40, 110), role, fill=GOLD, font=FONT_ROLE)
+    y = 160
+    draw.rectangle([40, y, width-40, y+60], fill=RED, outline=ORANGE, width=3)
+    draw.text((60, y+15), "CRITICAL ISSUES DETECTED", fill=WHITE, font=font_heading)
+    y += 80
     
-    # Contact Section
-    y = 170
-    draw.text((40, y), "CONTACT", fill=NAVY, font=FONT_SECTION)
-    y += 35
-    
-    phone = safe_str(data.get('phone', '+1 (512) 555-0456'))
-    if phone and phone not in ['Not Provided', 'Not found', '']:
-        draw.text((40, y), f"Phone: {phone}", fill=GRAY_DARK, font=FONT_SMALL)
-        y += 28
-    
-    email = safe_str(data.get('email', 'neha.gupta@email.com'))
-    if email and email not in ['Not Provided', 'Not found', '']:
-        draw.text((40, y), f"Email: {email}", fill=GRAY_DARK, font=FONT_SMALL)
-        y += 28
-    
-    location = safe_str(data.get('location', 'Austin, TX'))
-    if location and location not in ['Not Specified', '']:
-        draw.text((40, y), f"Location: {location}", fill=GRAY_DARK, font=FONT_SMALL)
+    quality_observations = data.get('quality_observations', [])
+    for obs in quality_observations[:8]:
+        draw.text((60, y), obs, fill=RED, font=font_body)
         y += 40
     
-    # Skills Section
-    draw.text((40, y), "SKILLS", fill=NAVY, font=FONT_SECTION)
-    y += 35
+    y += 20
+    draw.rectangle([40, y, width-40, y+50], fill=GRAY)
+    draw.text((60, y+12), "CANDIDATE INFORMATION", fill=WHITE, font=font_heading)
+    y += 70
     
-    skills = data.get('skills', [
-        "Product Management", "Agile", "Scrum", "JIRA", 
-        "Confluence", "Aha!", "Analytics", "Mixpanel"
-    ])
-    for skill in skills[:10]:
-        draw.text((40, y), f"- {skill}", fill=GRAY_DARK, font=FONT_SMALL)
-        y += 24
-        if y > 800:
-            break
+    name = data.get('name', 'Unknown Candidate')
+    phone = data.get('phone', 'Not Provided')
+    email = data.get('email', 'Not Provided')
     
-    # ===== RIGHT PANEL =====
-    right_x = panel_width + 50
-    max_width = width - right_x - 50
+    draw.text((60, y), f"Name: {name}", fill=(0,0,0), font=font_body)
+    y += 40
+    draw.text((60, y), f"Phone: {phone}", fill=(0,0,0), font=font_body)
+    y += 40
+    draw.text((60, y), f"Email: {email}", fill=(0,0,0), font=font_body)
+    y += 60
     
-    # Name in right panel (smaller)
-    name_small = safe_str(data.get('name', 'NEHA GUPTA'))
-    draw.text((right_x, 50), name_small, fill=NAVY, font=FONT_NAME)
+    draw.rectangle([40, y, width-40, y+50], fill=ORANGE)
+    draw.text((60, y+12), "RECOMMENDATIONS FOR IMPROVEMENT", fill=WHITE, font=font_heading)
+    y += 70
     
-    # Role in right panel
-    role_small = safe_str(data.get('current_role', 'Product Manager | SaaS Specialist'))
-    draw.text((right_x, 100), role_small, fill=GOLD, font=FONT_ROLE)
+    recommendations = [
+        "1. Add complete and professional contact information",
+        "2. Include relevant technical skills instead of social media",
+        "3. Provide specific work experience with dates and achievements",
+        "4. Write a professional summary focusing on skills",
+        "5. Add proper education details with years and institutions",
+        "6. Remove unprofessional language and exaggerations",
+        "7. Use a standard resume format with clear sections"
+    ]
     
-    # Divider line
-    draw.line([(right_x, 140), (width - 50, 140)], fill=GOLD, width=2)
+    for rec in recommendations:
+        draw.text((60, y), rec, fill=GRAY, font=font_body)
+        y += 35
     
-    # Professional Summary
-    y = 170
-    draw.text((right_x, y), "PROFESSIONAL SUMMARY", fill=NAVY, font=FONT_SECTION)
-    draw.line([(right_x, y + 25), (right_x + 180, y + 25)], fill=GOLD, width=2)
+    draw.rectangle([0, height-60, width, height], fill=RED)
+    draw.text((width//2 - 250, height-45), "This resume requires significant improvement before submission", fill=WHITE, font=font_small)
+    
+    img.save(output_path, "PNG", dpi=(300, 300))
+    return output_path
+
+
+def generate_poor_resume_template(data, gap_analysis, output_path):
+    """Generate a 'Poor Quality' warning template"""
+    
+    width = 1920
+    height = 1080
+    img = Image.new('RGB', (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    ORANGE = (249, 115, 22)
+    YELLOW = (250, 204, 21)
+    WHITE = (255, 255, 255)
+    GRAY = (100, 100, 100)
+    
+    try:
+        font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 52)
+        font_heading = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+        font_body = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 20)
+        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
+    except:
+        font_title = ImageFont.load_default()
+        font_heading = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    
+    draw.rectangle([0, 0, width, 100], fill=ORANGE)
+    draw.text((width//2 - 180, 30), "POOR QUALITY RESUME", fill=WHITE, font=font_title)
+    
+    quality_score = data.get('resume_quality_score', 35)
+    draw.ellipse([width-150, 15, width-30, 135], fill=YELLOW)
+    draw.text((width-115, 50), str(quality_score), fill=(0,0,0), font=font_title)
+    draw.text((width-120, 95), "QUALITY", fill=GRAY, font=font_small)
+    
+    y = 140
+    draw.text((60, y), "Issues Detected:", fill=ORANGE, font=font_heading)
     y += 45
     
-    summary = safe_str(data.get('professional_summary', 
-        "Results-driven Product Manager with 6 years of experience in B2B SaaS products."))
-    for line in wrap_text(draw, summary, FONT_BODY, max_width)[:4]:
-        draw.text((right_x, y), line, fill=GRAY_MEDIUM, font=FONT_BODY)
-        y += 26
+    quality_observations = data.get('quality_observations', [])
+    for obs in quality_observations[:6]:
+        draw.text((80, y), obs, fill=GRAY, font=font_body)
+        y += 35
     
-    # Work Experience
-    y += 30
-    draw.text((right_x, y), "WORK EXPERIENCE", fill=NAVY, font=FONT_SECTION)
-    draw.line([(right_x, y + 25), (right_x + 200, y + 25)], fill=GOLD, width=2)
-    y += 50
+    y += 20
+    draw.text((60, y), "Quick Fixes Needed:", fill=ORANGE, font=font_heading)
+    y += 45
+    
+    fixes = [
+        "Add professional email and phone number",
+        "Include relevant technical skills",
+        "Provide specific work experience with measurable achievements",
+        "Use professional language throughout"
+    ]
+    
+    for fix in fixes:
+        draw.text((80, y), fix, fill=GRAY, font=font_body)
+        y += 35
+    
+    img.save(output_path, "PNG", dpi=(300, 300))
+    return output_path
+
+
+def generate_professional_resume_template(data, gap_analysis, output_path):
+    """Generate a professional, clean corporate resume as PNG image"""
+    
+    width = 1920
+    height = 1440
+    img = Image.new('RGB', (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    
+    COLOR_NAVY = (31, 58, 147)
+    COLOR_GOLD = (198, 155, 53)
+    COLOR_GRAY = (128, 128, 128)
+    COLOR_LIGHT_GRAY = (245, 245, 245)
+    COLOR_DARK = (51, 51, 51)
+    COLOR_WHITE = (255, 255, 255)
+    
+    def inches_to_pixels(inches):
+        return int(inches * 192)
+    
+    sidebar_width = inches_to_pixels(3)
+    draw.rectangle([0, 0, sidebar_width, height], fill=COLOR_LIGHT_GRAY)
+    
+    avatar_size = inches_to_pixels(1.5)
+    avatar_x = (sidebar_width - avatar_size) // 2
+    avatar_y = inches_to_pixels(0.4)
+    create_professional_avatar(draw, avatar_x, avatar_y, avatar_size, 
+                               data.get("name", "Candidate"), data.get("gender", "neutral"))
+    
+    contact_y = inches_to_pixels(2.2)
+    add_text_box(draw, inches_to_pixels(0.4), contact_y, inches_to_pixels(2.2), 
+                inches_to_pixels(0.3), "CONTACT", font_size=26, bold=True, color=COLOR_NAVY)
+    
+    phone = data.get('phone', '')
+    if phone and phone not in ['Not specified', 'Not found', '']:
+        add_text_box(draw, inches_to_pixels(0.4), contact_y + inches_to_pixels(0.35), 
+                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Phone: {safe_str(phone)}", 
+                    font_size=22, color=COLOR_GRAY)
+    
+    email = data.get('email', '')
+    if email and email not in ['Not specified', 'Not found', '']:
+        add_text_box(draw, inches_to_pixels(0.4), contact_y + inches_to_pixels(0.65), 
+                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Email: {safe_str(email)}", 
+                    font_size=22, color=COLOR_GRAY)
+    
+    location = data.get('location', '')
+    if location and location not in ['Not specified', '']:
+        add_text_box(draw, inches_to_pixels(0.4), contact_y + inches_to_pixels(0.95), 
+                    inches_to_pixels(2.2), inches_to_pixels(0.25), f"Location: {safe_str(location)}", 
+                    font_size=22, color=COLOR_GRAY)
+    
+    skills_y = contact_y + inches_to_pixels(1.8)
+    add_text_box(draw, inches_to_pixels(0.4), skills_y, inches_to_pixels(2.2), 
+                inches_to_pixels(0.3), "SKILLS", font_size=28, bold=True, color=COLOR_NAVY)
+    
+    skills = data.get('skills', [])
+    skill_y = skills_y + inches_to_pixels(0.4)
+    for skill in skills[:8]:
+        if skill:
+            skill_y = add_text_box(draw, inches_to_pixels(0.5), skill_y, inches_to_pixels(2.1), 
+                                  inches_to_pixels(0.25), f"- {safe_str(skill)}", 
+                                  font_size=20, color=COLOR_DARK)
+            skill_y += inches_to_pixels(0.05)
+        if skill_y > inches_to_pixels(7.0):
+            break
+    
+    right_x = inches_to_pixels(3.3)
+    content_width = width - right_x - inches_to_pixels(0.5)
+    
+    name = safe_str(data.get('name', 'Professional Candidate')).upper()
+    add_text_box(draw, right_x, inches_to_pixels(0.5), inches_to_pixels(6.2), 
+                inches_to_pixels(0.7), name, font_size=48, bold=True, color=COLOR_NAVY)
+    
+    role = safe_str(data.get('current_role', 'Professional'))
+    add_text_box(draw, right_x, inches_to_pixels(1.1), inches_to_pixels(6.2), 
+                inches_to_pixels(0.4), role, font_size=32, color=COLOR_GOLD)
+    
+    divider_y = inches_to_pixels(1.55)
+    draw.rectangle([right_x, divider_y, right_x + inches_to_pixels(6.2), divider_y + inches_to_pixels(0.02)], 
+                  fill=COLOR_GOLD)
+    
+    summary_y = inches_to_pixels(1.8)
+    add_text_box(draw, right_x, summary_y, inches_to_pixels(3), inches_to_pixels(0.4), 
+                "PROFESSIONAL SUMMARY", font_size=28, bold=True, color=COLOR_NAVY)
+    draw.rectangle([right_x, summary_y + inches_to_pixels(0.35), 
+                   right_x + inches_to_pixels(0.8), summary_y + inches_to_pixels(0.38)], 
+                  fill=COLOR_GOLD)
+    
+    summary = safe_str(data.get('professional_summary', ''))
+    if len(summary) > 400:
+        summary = summary[:400] + "..."
+    
+    add_text_box(draw, right_x, summary_y + inches_to_pixels(0.45), inches_to_pixels(6.2), 
+                inches_to_pixels(0.9), summary, font_size=24, color=COLOR_GRAY)
+    
+    exp_y = inches_to_pixels(2.8)
+    add_text_box(draw, right_x, exp_y, inches_to_pixels(3), inches_to_pixels(0.4), 
+                "WORK EXPERIENCE", font_size=28, bold=True, color=COLOR_NAVY)
+    draw.rectangle([right_x, exp_y + inches_to_pixels(0.35), 
+                   right_x + inches_to_pixels(1.2), exp_y + inches_to_pixels(0.38)], 
+                  fill=COLOR_GOLD)
     
     experiences = data.get('latest_3_experiences', [])
+    exp_item_y = exp_y + inches_to_pixels(0.45)
     
-    # Default experiences if none provided
-    if not experiences:
-        experiences = [
-            {
-                "role": "Senior Product Manager",
-                "company": "TechStart Solutions",
-                "duration": "",
-                "responsibilities": [
-                    "Launched AI-powered analytics feature increasing user engagement by 45%",
-                    "Managed product roadmap for B2B SaaS platform with 100K+ active users",
-                    "Increased MRR by 40% through strategic feature prioritization"
-                ]
-            },
-            {
-                "role": "Product Manager",
-                "company": "Digital Innovations Corp",
-                "duration": "",
-                "responsibilities": [
-                    "Led cross-functional team of 15 engineers and designers",
-                    "Achieved 98% customer satisfaction rating",
-                    "Successfully launched MVP in 4 months, 2 months ahead of schedule"
-                ]
-            },
-            {
-                "role": "Associate Product Manager",
-                "company": "StartupHub",
-                "duration": "",
-                "responsibilities": [
-                    "From ideation to launch: 0 to 50,000 users in 8 months",
-                    "Conducted 100+ user interviews for product validation",
-                    "Won 'Best New Product' award at TechCrunch Disrupt"
-                ]
-            }
-        ]
-    
-    for exp in experiences[:3]:
-        if y > 1000:
+    for idx, exp in enumerate(experiences[:3]):
+        if exp_item_y > inches_to_pixels(6.2):
             break
         
-        role = safe_str(exp.get('role', ''))
-        company = safe_str(exp.get('company', ''))
+        company = safe_str(exp.get('company', 'Company Name'))
+        role = safe_str(exp.get('role', 'Position'))
+        company_role_text = f"{role}  |  {company}"
+        exp_item_y = add_text_box(draw, right_x, exp_item_y, inches_to_pixels(5), 
+                                 inches_to_pixels(0.3), company_role_text, 
+                                 font_size=24, bold=True, color=COLOR_NAVY)
         
-        # Job title and company on same line
-        draw.text((right_x, y), f"{role} | {company}", fill=NAVY, font=FONT_SUBHEADING)
-        y += 35
+        duration = safe_str(exp.get('duration', 'Date Range'))
+        add_text_box(draw, right_x + inches_to_pixels(4.5), exp_item_y - inches_to_pixels(0.3), 
+                    inches_to_pixels(1.7), inches_to_pixels(0.3), duration, 
+                    font_size=22, color=COLOR_GRAY, align="right")
         
-        # Responsibilities
-        for resp in exp.get('responsibilities', [])[:4]:
-            resp_text = safe_str(resp)[:100]
-            draw.text((right_x + 15, y), "-", fill=GOLD, font=FONT_BODY)
-            draw.text((right_x + 32, y), resp_text, fill=GRAY_DARK, font=FONT_BODY)
-            y += 26
+        responsibilities = exp.get('responsibilities', [])
+        for resp in responsibilities[:3]:
+            if resp:
+                resp_text = safe_str(resp)
+                if len(resp_text) > 70:
+                    resp_text = resp_text[:67] + "..."
+                exp_item_y = add_text_box(draw, right_x + inches_to_pixels(0.15), exp_item_y, 
+                                         inches_to_pixels(6), inches_to_pixels(0.25), 
+                                         f"- {resp_text}", font_size=19, color=COLOR_DARK)
         
-        y += 15
+        exp_item_y += inches_to_pixels(0.2)
     
-    # Education
-    if y < 1050:
-        draw.text((right_x, y), "EDUCATION", fill=NAVY, font=FONT_SECTION)
-        draw.line([(right_x, y + 25), (right_x + 150, y + 25)], fill=GOLD, width=2)
-        y += 50
+    if exp_item_y < inches_to_pixels(6.0):
+        edu_y = exp_item_y + inches_to_pixels(0.1)
+        add_text_box(draw, right_x, edu_y, inches_to_pixels(3), inches_to_pixels(0.4), 
+                    "EDUCATION", font_size=28, bold=True, color=COLOR_NAVY)
+        draw.rectangle([right_x, edu_y + inches_to_pixels(0.35), 
+                       right_x + inches_to_pixels(0.8), edu_y + inches_to_pixels(0.38)], 
+                      fill=COLOR_GOLD)
         
-        edu = data.get('education', {})
-        degree = safe_str(edu.get('degree', 'MBA in Marketing & Strategy'))
-        institution = safe_str(edu.get('institution', 'University of Texas at Austin'))
-        
-        if degree:
-            draw.text((right_x, y), f"{degree} | {institution}", fill=NAVY, font=FONT_SUBHEADING)
-            y += 35
+        education = data.get('education', {})
+        if education:
+            degree = safe_str(education.get('degree', 'Degree'))
+            institution = safe_str(education.get('institution', 'Institution'))
+            year = safe_str(education.get('year', 'Year'))
+            edu_text = f"{degree}  |  {institution}"
+            add_text_box(draw, right_x, edu_y + inches_to_pixels(0.45), inches_to_pixels(5), 
+                        inches_to_pixels(0.3), edu_text, font_size=20, bold=True, color=COLOR_NAVY)
+            
+            add_text_box(draw, right_x + inches_to_pixels(4.5), edu_y + inches_to_pixels(0.45), 
+                        inches_to_pixels(1.7), inches_to_pixels(0.3), year, 
+                        font_size=16, color=COLOR_GRAY, align="right")
     
-    # Quality Score Badge
-    quality_score = data.get('resume_quality_score', 85)
-    if quality_score >= 80:
-        badge_color = (46, 204, 113)
-    elif quality_score >= 60:
-        badge_color = (241, 196, 15)
+    fit_score = data.get('fit_score', 85)
+    if fit_score is None:
+        fit_score = 85
+    
+    badge_size = inches_to_pixels(0.8)
+    badge_x = width - badge_size - inches_to_pixels(0.5)
+    badge_y = inches_to_pixels(0.4)
+    
+    if fit_score >= 80:
+        score_color = (46, 204, 113)
+    elif fit_score >= 60:
+        score_color = (241, 196, 15)
     else:
-        badge_color = (231, 76, 60)
+        score_color = (231, 76, 60)
     
-    badge_size = 80
-    badge_x = width - badge_size - 30
-    badge_y = 30
+    draw.ellipse([badge_x, badge_y, badge_x + badge_size, badge_y + badge_size], fill=score_color)
     
-    draw.ellipse([badge_x, badge_y, badge_x + badge_size, badge_y + badge_size], fill=badge_color)
-    draw.text((badge_x + 25, badge_y + 30), str(quality_score), fill=WHITE, font=get_font(32, bold=True))
-    draw.text((badge_x + 15, badge_y + 62), "QUALITY", fill=WHITE, font=FONT_SMALL)
+    try:
+        font_large = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 52)
+    except:
+        font_large = ImageFont.load_default()
     
-    # Footer
-    footer_y = height - 40
+    bbox = draw.textbbox((0, 0), str(fit_score), font=font_large)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    draw.text((badge_x + (badge_size - text_width) // 2, badge_y + (badge_size - text_height) // 2 - 10), 
+              str(fit_score), fill=COLOR_WHITE, font=font_large)
+    
+    try:
+        font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
+    except:
+        font_small = ImageFont.load_default()
+    
+    bbox = draw.textbbox((0, 0), "FIT SCORE", font=font_small)
+    text_width = bbox[2] - bbox[0]
+    draw.text((badge_x + (badge_size - text_width) // 2, badge_y + badge_size - inches_to_pixels(0.25)), 
+              "FIT SCORE", fill=COLOR_WHITE, font=font_small)
+    
+    footer_y = height - inches_to_pixels(0.3)
     footer_text = f"AI Resume Intelligence Report - Generated {datetime.now().strftime('%B %d, %Y')}"
-    draw.text((width // 2 - 240, footer_y), footer_text, fill=GRAY_MEDIUM, font=FONT_FOOTER)
+    
+    try:
+        font_footer = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 12)
+    except:
+        font_footer = ImageFont.load_default()
+    
+    bbox = draw.textbbox((0, 0), footer_text, font=font_footer)
+    text_width = bbox[2] - bbox[0]
+    draw.text((width // 2 - text_width // 2, footer_y), footer_text, fill=COLOR_GRAY, font=font_footer)
     
     img.save(output_path, "PNG", dpi=(300, 300))
     return output_path
