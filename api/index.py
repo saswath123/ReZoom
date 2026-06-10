@@ -32,23 +32,33 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ============================================================
-# SCORE CALCULATION FUNCTIONS
+# SCORE CALCULATION FUNCTIONS - WITH NONE HANDLING
 # ============================================================
 
 def calculate_fit_score(structured_data, extracted_text):
     """Calculate JOB FIT score - based on skills, experience, role match only"""
     resume_lower = extracted_text.lower()
     
+    # 1. Skills Match (40% weight)
     technical_skills = [
         'python', 'java', 'javascript', 'typescript', 'aws', 'azure', 'gcp',
         'sql', 'mongodb', 'postgresql', 'react', 'angular', 'vue', 'node',
         'docker', 'kubernetes', 'terraform', 'jenkins', 'git', 'ci/cd',
-        'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit-learn'
+        'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit-learn',
+        'django', 'flask', 'spring', '.net', 'c++', 'go', 'rust'
     ]
     found_skills = sum(1 for skill in technical_skills if skill in resume_lower)
     skills_score = min(40, (found_skills / 8) * 40) if found_skills > 0 else 15
     
+    # 2. Experience Match (30% weight) - FIX None value
     exp_years = structured_data.get('total_experience_years', 0)
+    if exp_years is None:
+        exp_years = 0
+    try:
+        exp_years = int(exp_years)
+    except (ValueError, TypeError):
+        exp_years = 0
+    
     if exp_years >= 8:
         exp_score = 30
     elif exp_years >= 5:
@@ -60,17 +70,28 @@ def calculate_fit_score(structured_data, extracted_text):
     else:
         exp_score = 5
     
-    current_role = structured_data.get('current_role', '').lower()
+    # 3. Role Alignment (20% weight)
+    current_role = structured_data.get('current_role', '')
+    if current_role is None:
+        current_role = ''
+    current_role = current_role.lower()
     senior_indicators = ['senior', 'lead', 'architect', 'manager', 'principal', 'staff']
     has_senior = any(word in current_role for word in senior_indicators)
     role_score = 20 if has_senior else 10
     
+    # 4. Achievements Quality (10% weight)
     achievements = structured_data.get('latest_3_experiences', [])
+    if achievements is None:
+        achievements = []
     has_quantifiable = False
     quantifiers = ['%', 'increased', 'reduced', 'saved', 'launched', 
                   'built', 'created', 'improved', 'optimized', 'delivered']
     for exp in achievements:
+        if exp is None:
+            continue
         for resp in exp.get('responsibilities', []):
+            if resp is None:
+                continue
             if any(word in resp.lower() for word in quantifiers):
                 has_quantifiable = True
                 break
@@ -83,7 +104,7 @@ def calculate_fit_score(structured_data, extracted_text):
 
 
 def calculate_quality_score(structured_data, extracted_text):
-    """Calculate RESUME QUALITY score - more strict"""
+    """Calculate RESUME QUALITY score - with None handling"""
     resume_lower = extracted_text.lower()
     score = 100
     
@@ -96,28 +117,37 @@ def calculate_quality_score(structured_data, extracted_text):
     if not has_years:
         score -= 15
     
-    # Check for employment gaps in data
+    # Check for employment gaps in data - FIX None value
     experiences = structured_data.get('latest_3_experiences', [])
+    if experiences is None:
+        experiences = []
     if len(experiences) < 2:
         score -= 10
     
     # Check for education completeness
     edu = structured_data.get('education', {})
-    if not edu.get('year') or edu.get('year') == 'Not Specified':
+    if edu is None:
+        edu = {}
+    year = edu.get('year', '')
+    if year is None:
+        year = ''
+    if not year or year in ['Not Specified', 'None', '']:
         score -= 10
     
     # Check for contact info
     email = structured_data.get('email', '')
     phone = structured_data.get('phone', '')
-    if not email or email in ['Not Provided', 'Not found', '']:
+    if email is None or email in ['Not Provided', 'Not found', '']:
         score -= 10
-    if not phone or phone in ['Not Provided', 'Not found', '']:
+    if phone is None or phone in ['Not Provided', 'Not found', '']:
         score -= 10
     
     return max(0, min(100, score))
 
 
 def get_quality_verdict(score):
+    if score is None:
+        return "Average"
     if score >= 90:
         return "Excellent"
     elif score >= 70:
@@ -133,6 +163,20 @@ def get_quality_verdict(score):
 # ============================================================
 # MAIN ROUTES
 # ============================================================
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+
+@app.route("/api/version", methods=["GET"])
+def version():
+    return jsonify({
+        "version": "2026-06-10-v6",
+        "status": "active",
+        "message": "AI Resume Parser is running"
+    })
+
 
 @app.route("/api/upload", methods=["POST"])
 def upload_resume():
@@ -189,6 +233,10 @@ def upload_resume():
         gap_analyzer = GapAnalyzer()
         education_raw = structured_data.get('education_raw', [])
         experience_raw = structured_data.get('experience_raw', [])
+        if education_raw is None:
+            education_raw = []
+        if experience_raw is None:
+            experience_raw = []
         gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
         
         # Generate PNG image
@@ -200,8 +248,11 @@ def upload_resume():
         image_base64 = base64.b64encode(png_bytes).decode('utf-8')
         
         # Clean up
-        os.remove(file_path)
-        os.remove(png_path)
+        try:
+            os.remove(file_path)
+            os.remove(png_path)
+        except:
+            pass
         
         return jsonify({
             "success": True,
@@ -217,20 +268,6 @@ def upload_resume():
         import traceback
         print(traceback.format_exc())
         return jsonify({"error": f"Processing failed: {str(e)}"}), 500
-
-
-@app.route("/api/health", methods=["GET"])
-def health():
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
-
-
-@app.route("/api/version", methods=["GET"])
-def version():
-    return jsonify({
-        "version": "2026-06-08-v5",
-        "status": "active",
-        "message": "AI Resume Parser is running"
-    })
 
 
 # For local development
