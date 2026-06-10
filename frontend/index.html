@@ -49,6 +49,75 @@
                 </div>
             </div>
 
+            <!-- Job Role Selection Panel -->
+            <div class="role-selector-section" id="roleSelectorSection">
+                <div class="role-selector-card">
+                    <div class="role-selector-header">
+                        <div class="role-selector-icon">
+                            <i class="fas fa-crosshairs"></i>
+                        </div>
+                        <div class="role-selector-title">
+                            <h3>Target Job Role <span class="role-optional-tag">Recommended</span></h3>
+                            <p>Select a role to get a customized fit score and skill gap analysis</p>
+                        </div>
+                        <button class="role-clear-btn" id="roleClearBtn" style="display:none;">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+
+                    <div class="role-selector-body">
+                        <!-- Dropdown -->
+                        <div class="role-select-wrapper">
+                            <label for="jobRoleSelect"><i class="fas fa-briefcase"></i> Job Role</label>
+                            <div class="custom-select-container">
+                                <select id="jobRoleSelect" class="role-dropdown">
+                                    <option value="">-- Select a Job Role --</option>
+                                    <option value="__custom__">✏️ Custom Role...</option>
+                                    <option disabled>─────────────────</option>
+                                </select>
+                                <i class="fas fa-chevron-down select-arrow"></i>
+                            </div>
+                        </div>
+
+                        <!-- Custom Role Input (hidden by default) -->
+                        <div class="custom-role-wrapper" id="customRoleWrapper" style="display:none;">
+                            <label for="customRoleInput"><i class="fas fa-pen"></i> Custom Role Title</label>
+                            <input
+                                type="text"
+                                id="customRoleInput"
+                                class="custom-role-input"
+                                placeholder="e.g. GenAI Engineer, Blockchain Developer..."
+                                maxlength="80"
+                            />
+                        </div>
+
+                        <!-- Job Description (collapsible) -->
+                        <div class="jd-toggle-row">
+                            <button class="jd-toggle-btn" id="jdToggleBtn" type="button">
+                                <i class="fas fa-file-alt"></i>
+                                Paste Job Description <span class="jd-optional">(optional — improves accuracy)</span>
+                                <i class="fas fa-chevron-down jd-chevron" id="jdChevron"></i>
+                            </button>
+                        </div>
+                        <div class="jd-textarea-wrapper" id="jdTextareaWrapper" style="display:none;">
+                            <textarea
+                                id="jobDescriptionText"
+                                class="jd-textarea"
+                                placeholder="Paste the full job description here. The AI will extract required skills and calibrate the fit score accordingly..."
+                                rows="6"
+                            ></textarea>
+                            <span class="jd-char-count" id="jdCharCount">0 / 4000 characters</span>
+                        </div>
+                    </div>
+
+                    <!-- Selected Role Badge -->
+                    <div class="role-selected-badge" id="roleSelectedBadge" style="display:none;">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Analyzing for: <strong id="roleSelectedName"></strong></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Upload Section -->
             <div class="upload-section" id="uploadSection">
                 <div class="upload-container">
@@ -265,6 +334,46 @@
                             </div>
                             <ul class="improvements-list" id="improvementsList"></ul>
                         </div>
+
+                        <!-- Skill Gap Analysis Card -->
+                        <div class="skill-gap-card" id="skillGapCard" style="display:none;">
+                            <div class="card-header">
+                                <i class="fas fa-crosshairs"></i>
+                                <h4>Skill Gap Analysis</h4>
+                                <span class="role-target-badge" id="roleTargetBadge"></span>
+                            </div>
+
+                            <!-- Match percentage bar -->
+                            <div class="gap-match-bar-section">
+                                <div class="gap-match-label">
+                                    <span>Required Skills Match</span>
+                                    <span class="gap-match-pct" id="gapMatchPct">0%</span>
+                                </div>
+                                <div class="gap-bar-track">
+                                    <div class="gap-bar-fill" id="gapBarFill"></div>
+                                </div>
+                            </div>
+
+                            <!-- Skills grid -->
+                            <div class="gap-skills-grid" id="gapSkillsGrid"></div>
+
+                            <!-- Experience & Certs row -->
+                            <div class="gap-meta-row" id="gapMetaRow">
+                                <div class="gap-meta-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Experience</span>
+                                    <strong id="gapExpPct">--</strong>
+                                </div>
+                                <div class="gap-meta-item">
+                                    <i class="fas fa-certificate"></i>
+                                    <span>Certifications</span>
+                                    <strong id="gapCertPct">--</strong>
+                                </div>
+                            </div>
+
+                            <!-- Recommendations -->
+                            <div class="gap-recommendations" id="gapRecommendations"></div>
+                        </div>
                     </div>
 
                     <!-- Right Column - Resume Data & Actions -->
@@ -327,6 +436,18 @@
                                 <h4>Education</h4>
                             </div>
                             <div id="educationInfo" class="education-info"></div>
+                        </div>
+
+                        <!-- Best Suited Role Card -->
+                        <div class="best-suited-role-card" id="bestSuitedRoleCard" style="display: none;">
+                            <div class="card-header">
+                                <i class="fas fa-trophy"></i>
+                                <h4>Best Suited Role</h4>
+                            </div>
+                            <div class="role-badge-content">
+                                <div class="role-badge-title" id="suitedRoleTitle">--</div>
+                                <div class="role-badge-reason" id="suitedRoleReason">--</div>
+                            </div>
                         </div>
                     </div>
 

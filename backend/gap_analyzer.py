@@ -1,6 +1,61 @@
 import re
 from datetime import datetime
 
+def subtract_intervals(generic_intervals, explaining_intervals):
+    result = list(generic_intervals)
+    for b_start, b_end in explaining_intervals:
+        if b_start is None or b_end is None or b_start >= b_end:
+            continue
+        next_result = []
+        for a_start, a_end in result:
+            if a_start is None or a_end is None or a_start >= a_end:
+                continue
+            # No overlap
+            if b_end <= a_start or b_start >= a_end:
+                next_result.append((a_start, a_end))
+            # Complete cover
+            elif b_start <= a_start and b_end >= a_end:
+                continue
+            # Overlap start
+            elif b_start <= a_start and b_end < a_end:
+                next_result.append((b_end, a_end))
+            # Overlap end
+            elif b_start > a_start and b_end >= a_end:
+                next_result.append((a_start, b_start))
+            # Split
+            else:
+                next_result.append((a_start, b_start))
+                next_result.append((b_end, a_end))
+        result = next_result
+    return result
+
+def merge_and_sum_intervals(intervals):
+    valid_intervals = []
+    for s, e in intervals:
+        if s is not None and e is not None:
+            if s > e:
+                s, e = e, s
+            valid_intervals.append((s, e))
+            
+    if not valid_intervals:
+        return 0
+        
+    valid_intervals.sort(key=lambda x: x[0])
+    
+    merged = []
+    current_start, current_end = valid_intervals[0]
+    
+    for start, end in valid_intervals[1:]:
+        if start <= current_end:
+            current_end = max(current_end, end)
+        else:
+            merged.append((current_start, current_end))
+            current_start, current_end = start, end
+            
+    merged.append((current_start, current_end))
+    
+    return sum(e - s for s, e in merged)
+
 class GapAnalyzer:
     """Career Gap Detection & Employment Continuity Analysis"""
     
@@ -28,27 +83,28 @@ class GapAnalyzer:
         return len(self.extract_years_from_text(text)) > 0
     
     def parse_date_range(self, text):
-        """Extract start and end years from a date range string - IMPROVED"""
+        """Extract start and end years from a date range string - SUPER ROBUST"""
         if not text:
             return None, None
         
         text = str(text)
         
-        # Pattern 1: YYYY-YYYY or YYYY - YYYY or YYYY–YYYY
-        match = re.search(r'(\d{4})\s*[-–—]\s*(\d{4})', text)
-        if match:
-            return int(match.group(1)), int(match.group(2))
+        # 1. First extract all 4-digit years in range 1950-2030
+        years = self.extract_years_from_text(text)
         
-        # Pattern 2: YYYY-Present or YYYY - Present
-        match = re.search(r'(\d{4})\s*[-–—]\s*[Pp]resent', text)
-        if match:
-            return int(match.group(1)), datetime.now().year
+        # 2. Check if "present" or "current" is in the text
+        has_present = bool(re.search(r'\b(?:[Pp]resent|[Cc]urrent)\b', text))
         
-        # Pattern 3: Just a single year
-        match = re.search(r'\b(\d{4})\b', text)
-        if match:
-            year = int(match.group(1))
-            return year, year
+        if len(years) >= 2:
+            # Sort years to ensure start is smaller than end
+            sorted_years = sorted(years)
+            return sorted_years[0], sorted_years[-1]
+        elif len(years) == 1:
+            year = years[0]
+            if has_present:
+                return year, datetime.now().year
+            else:
+                return year, year
         
         return None, None
     
@@ -311,35 +367,68 @@ class GapAnalyzer:
         
         # Perform analyses
         edu_to_employment_gap = self.analyze_education_to_employment_gap(education_entries, experience_entries)
-        employment_gaps = self.analyze_employment_gaps(experience_entries)
+        raw_employment_gaps = self.analyze_employment_gaps(experience_entries)
         career_breaks = self.analyze_career_breaks(experience_entries)
         current_status = self.analyze_current_employment_gap(experience_entries)
         
-        # Calculate total gap
-        total_gap_years = 0
+        # 1. Extract explaining intervals (career breaks)
+        explaining_intervals = []
+        for cb in career_breaks:
+            if isinstance(cb.get('duration_years'), (int, float)):
+                explaining_intervals.append((cb['from_year'], cb['to_year']))
+                
+        # 2. Extract generic employment gap intervals
+        generic_emp_intervals = []
+        for eg in raw_employment_gaps:
+            generic_emp_intervals.append((eg['from_year'], eg['to_year']))
+            
+        # 3. Subtract career breaks from generic employment gaps to prevent double-counting/redundancy
+        adjusted_emp_intervals = subtract_intervals(generic_emp_intervals, explaining_intervals)
+        
+        # Rebuild employment_gaps list from adjusted intervals
+        employment_gaps = []
+        for start, end in adjusted_emp_intervals:
+            gap_years = end - start
+            employment_gaps.append({
+                'type': 'Employment Gap',
+                'from_year': start,
+                'to_year': end,
+                'duration_years': gap_years,
+                'description': f"{start} to {end} ({gap_years} year{'s' if gap_years != 1 else ''})"
+            })
+            
+        # 4. Calculate total gap using non-overlapping union of all intervals
+        all_intervals = []
+        if isinstance(edu_to_employment_gap, dict) and edu_to_employment_gap.get('duration_years') != 'Unknown':
+            from_yr = edu_to_employment_gap.get('from_year')
+            to_yr = edu_to_employment_gap.get('to_year')
+            if from_yr is not None and to_yr is not None:
+                all_intervals.append((from_yr, to_yr))
+            
+        for start, end in adjusted_emp_intervals:
+            all_intervals.append((start, end))
+            
+        for start, end in explaining_intervals:
+            all_intervals.append((start, end))
+            
+        current_gap = current_status.get('gap')
+        if isinstance(current_gap, dict):
+            from_yr = current_gap.get('from_year')
+            to_yr = current_gap.get('to_year')
+            if from_yr is not None and to_yr is not None:
+                all_intervals.append((from_yr, to_yr))
+            
+        total_gap_years = merge_and_sum_intervals(all_intervals)
+        
+        # Handle unknown cases
         gap_years_known = True
-        
-        if edu_to_employment_gap:
-            if edu_to_employment_gap.get('duration_years') == 'Unknown':
+        if edu_to_employment_gap and edu_to_employment_gap.get('duration_years') == 'Unknown':
+            gap_years_known = False
+            
+        for cb in career_breaks:
+            if cb.get('duration_years') == 'Unknown':
                 gap_years_known = False
-            else:
-                total_gap_years += edu_to_employment_gap['duration_years']
-        
-        for gap in employment_gaps:
-            if gap.get('duration_years') not in [None, 'Unknown', 0]:
-                total_gap_years += gap['duration_years']
-        
-        for gap in career_breaks:
-            if gap.get('duration_years') == 'Unknown':
-                gap_years_known = False
-            elif isinstance(gap.get('duration_years'), (int, float)) and gap['duration_years'] not in [None, 0]:
-                total_gap_years += gap['duration_years']
-        
-        if current_status.get('gap'):
-            gap_duration = current_status['gap'].get('duration_years')
-            if isinstance(gap_duration, (int, float)) and gap_duration > 0:
-                total_gap_years += gap_duration
-        
+                
         if not gap_years_known or total_gap_years == 0:
             # Check if there's any year data at all
             has_any_years = any(e.get('has_years') for e in education_entries) or any(e.get('has_years') for e in experience_entries)
@@ -349,7 +438,7 @@ class GapAnalyzer:
                 total_gap_years = 0
         else:
             total_gap_years = round(total_gap_years, 1)
-        
+            
         result = {
             'current_status': current_status['status'],
             'education_to_employment_gap': edu_to_employment_gap,

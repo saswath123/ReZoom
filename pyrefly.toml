@@ -1,0 +1,11 @@
+# pyrefly.toml — Pyrefly type checker configuration for TalentLens
+# Tells Pyrefly to resolve backend modules (extractor, llm_parser, etc.)
+# the same way the runtime sys.path.append in api/index.py does.
+
+python_interpreter = "/Library/Developer/CommandLineTools/usr/bin/python3"
+
+search_path = [
+  "backend",
+  "/Users/bharatarv/Library/Python/3.9/lib/python/site-packages",
+  "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages"
+]

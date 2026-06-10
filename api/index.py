@@ -10,11 +10,19 @@ import uuid
 import base64
 import re
 from datetime import datetime
+import traceback
 from werkzeug.utils import secure_filename
 from extractor import extract_resume_text
 from llm_parser import analyze_resume
 from image_generator import generate_resume_image
 from gap_analyzer import GapAnalyzer
+from role_matcher import (
+    get_predefined_roles,
+    get_role_requirements,
+    extract_skills_from_jd,
+    calculate_role_fit_score,
+    build_skill_gap_report
+)
 
 # Aggressive scoring for unprofessional resumes
 UNPROFESSIONAL_KEYWORDS = {
@@ -48,7 +56,6 @@ CORS(app)
 UPLOAD_FOLDER = "/tmp/uploads"
 OUTPUT_FOLDER = "/tmp/generated_images"
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
-MAX_FILE_SIZE = 4 * 1024 * 1024
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -62,7 +69,7 @@ def allowed_file(filename):
 # ============================================================
 
 def calculate_fit_score(structured_data, extracted_text):
-    """Calculate JOB FIT score - based on skills, experience, role match only"""
+    """Calculate JOB FIT score - based on skills, experience, certifications, role alignment, achievements"""
     resume_lower = extracted_text.lower()
     
     # Check if worst resume first
@@ -71,7 +78,7 @@ def calculate_fit_score(structured_data, extracted_text):
         print(f"⚠️ Worst resume detected! Unprofessional score: {unscore}")
         return 15
     
-    # 1. Skills Match (40% weight)
+    # 1. Skills Match (35% weight)
     technical_skills = [
         'python', 'java', 'javascript', 'typescript', 'aws', 'azure', 'gcp',
         'sql', 'mongodb', 'postgresql', 'react', 'angular', 'vue', 'node',
@@ -80,9 +87,10 @@ def calculate_fit_score(structured_data, extracted_text):
         'django', 'flask', 'spring', '.net', 'c++', 'go', 'rust'
     ]
     found_skills = sum(1 for skill in technical_skills if skill in resume_lower)
-    skills_score = min(40, (found_skills / 8) * 40) if found_skills > 0 else 15
+    skills_pct = min(100, (found_skills / 8) * 100) if found_skills > 0 else 30
+    skills_score = skills_pct * 0.35
     
-    # 2. Experience Match (30% weight)
+    # 2. Experience Match (25% weight)
     exp_years = structured_data.get('total_experience_years', 0)
     if exp_years is None:
         exp_years = 0
@@ -92,26 +100,36 @@ def calculate_fit_score(structured_data, extracted_text):
         exp_years = 0
     
     if exp_years >= 8:
-        exp_score = 30
+        exp_pct = 100
     elif exp_years >= 5:
-        exp_score = 25
+        exp_pct = 85
     elif exp_years >= 3:
-        exp_score = 20
+        exp_pct = 70
     elif exp_years >= 1:
-        exp_score = 12
+        exp_pct = 50
     else:
-        exp_score = 5
+        exp_pct = 20
+    exp_score = exp_pct * 0.25
     
-    # 3. Role Alignment (20% weight)
+    # 3. Certifications Match (15% weight)
+    resume_certs = structured_data.get("certifications", []) or []
+    if resume_certs:
+        cert_pct = 100
+    else:
+        cert_pct = 75  # neutral default
+    cert_score = cert_pct * 0.15
+    
+    # 4. Role Alignment (15% weight)
     current_role = structured_data.get('current_role', '')
     if current_role is None:
         current_role = ''
     current_role = current_role.lower()
-    senior_indicators = ['senior', 'lead', 'architect', 'manager', 'principal', 'staff']
+    senior_indicators = ['senior', 'lead', 'architect', 'manager', 'principal', 'staff', 'director']
     has_senior = any(word in current_role for word in senior_indicators)
-    role_score = 20 if has_senior else 10
+    role_pct = 100 if has_senior else 70
+    role_score = role_pct * 0.15
     
-    # 4. Achievements Quality (10% weight)
+    # 5. Achievements Quality (10% weight)
     achievements = structured_data.get('latest_3_experiences', [])
     if achievements is None:
         achievements = []
@@ -129,15 +147,15 @@ def calculate_fit_score(structured_data, extracted_text):
                 break
         if has_quantifiable:
             break
-    achievement_score = 10 if has_quantifiable else 5
+    achievement_pct = 100 if has_quantifiable else 50
+    achievement_score = achievement_pct * 0.10
     
-    final_score = int(skills_score + exp_score + role_score + achievement_score)
+    final_score = int(skills_score + exp_score + cert_score + role_score + achievement_score)
     return max(0, min(100, final_score))
 
 
 def calculate_quality_score(structured_data, extracted_text):
     """Calculate RESUME QUALITY score - with None handling"""
-    resume_lower = extracted_text.lower()
     
     # Check if worst resume first
     is_worst, unscore = is_worst_resume(extracted_text)
@@ -205,6 +223,16 @@ def get_quality_verdict(score):
 # MAIN ROUTES
 # ============================================================
 
+@app.route("/")
+def home():
+    # Trigger reload to read .env
+    return jsonify({
+        "status": "active",
+        "message": "AI Resume Parser API is running",
+        "version": "2026-06-10-v8"
+    })
+
+
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
@@ -213,10 +241,16 @@ def health():
 @app.route("/api/version", methods=["GET"])
 def version():
     return jsonify({
-        "version": "2026-06-10-v7",
+        "version": "2026-06-10-v8",
         "status": "active",
-        "message": "AI Resume Parser is running with worst resume detection"
+        "message": "AI Resume Parser is running with role-based fit scoring"
     })
+
+
+@app.route("/api/job-roles", methods=["GET"])
+def job_roles():
+    """Return list of predefined job roles."""
+    return jsonify({"roles": get_predefined_roles()})
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -238,9 +272,14 @@ def upload_resume():
         
         unique_id = str(uuid.uuid4())[:8]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        saved_filename = f"{timestamp}_{unique_id}_{secure_filename(file.filename)}"
+        saved_filename = f"{timestamp}_{unique_id}_{secure_filename(file.filename or 'upload')}"
         file_path = os.path.join(UPLOAD_FOLDER, saved_filename)
         file.save(file_path)
+
+        # --- Optional role / JD params ---
+        job_role = request.form.get("job_role", "").strip()
+        job_description = request.form.get("job_description", "").strip()
+        print(f"Job Role: '{job_role}' | JD length: {len(job_description)}")
         
         extracted_text = extract_resume_text(file_path)
         print(f"Extracted text length: {len(extracted_text)} chars")
@@ -251,6 +290,9 @@ def upload_resume():
         
         # Analyze with LLM
         structured_data = analyze_resume(extracted_text)
+        
+        # Initialize skill_gap — may be set later in the role branch
+        skill_gap = None
         
         # Force low scores for worst resumes
         if is_worst:
@@ -280,8 +322,28 @@ def upload_resume():
                 "⚠️ Complete resume rewrite is strongly recommended"
             ]
         else:
-            # Calculate scores normally
-            fit_score = calculate_fit_score(structured_data, extracted_text)
+            # Calculate scores — role-based or generic
+            if job_role:
+                # Build role requirements (merge JD extraction if provided)
+                role_requirements = get_role_requirements(job_role)
+                if job_description:
+                    jd_data = extract_skills_from_jd(job_description)
+                    if jd_data:
+                        # JD overrides / enriches the predefined template
+                        for field in ["required_skills", "preferred_skills", "certifications", "keywords"]:
+                            if jd_data.get(field):
+                                role_requirements[field] = list(set(
+                                    role_requirements.get(field, []) + jd_data[field]
+                                ))
+                        if jd_data.get("min_experience_years"):
+                            role_requirements["min_experience_years"] = jd_data["min_experience_years"]
+
+                fit_score = calculate_role_fit_score(structured_data, role_requirements, extracted_text)
+                skill_gap = build_skill_gap_report(structured_data, role_requirements, extracted_text)
+            else:
+                fit_score = calculate_fit_score(structured_data, extracted_text)
+                skill_gap = None
+
             quality_score = calculate_quality_score(structured_data, extracted_text)
             
             structured_data['fit_score'] = fit_score
@@ -334,12 +396,13 @@ def upload_resume():
             "data": structured_data,
             "image_base64": image_base64,
             "fit_score": structured_data.get('fit_score'),
+            "job_role": job_role if job_role else None,
+            "skill_gap": skill_gap if job_role else None,
             "gap_analysis": gap_analysis
         }), 200
         
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        import traceback
         print(traceback.format_exc())
         return jsonify({"error": f"Processing failed: {str(e)}"}), 500
 

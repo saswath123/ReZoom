@@ -1,0 +1,9 @@
+{
+  "pythonVersion": "3.9",
+  "pythonPlatform": "Linux",
+  "include": ["api", "backend", "frontend"],
+  "exclude": [".git", "__pycache__", "node_modules"],
+  "extraPaths": ["backend"],
+  "venvPath": ".",
+  "reportMissingModuleSource": "none"
+}

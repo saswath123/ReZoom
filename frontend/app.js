@@ -15,6 +15,10 @@ let currentPreviewImageUrl = null;
 let currentImageBlob = null;
 let currentPreviewFile = null;
 
+// Role selection state
+let selectedJobRole = null;
+let jobDescriptionText = null;
+
 // Theme Management
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -192,13 +196,32 @@ async function uploadResume() {
     const formData = new FormData();
     formData.append('resume', file);
     
+    // Attach role data if selected
+    const activeRole = getActiveJobRole();
+    const activeJD = document.getElementById('jobDescriptionText')?.value?.trim() || '';
+    if (activeRole) {
+        formData.append('job_role', activeRole);
+        if (activeJD) formData.append('job_description', activeJD);
+    }
+    
     loadingOverlay.style.display = 'flex';
+    // Update loading text with role
+    const loadingP = loadingOverlay.querySelector('.loading-text p');
+    if (loadingP && activeRole) {
+        loadingP.textContent = `Analyzing resume against "${activeRole}" role requirements...`;
+    } else if (loadingP) {
+        loadingP.textContent = 'Extracting skills, experiences, and generating insights...';
+    }
     
     try {
-       // Dynamic API URL for local vs production
-        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://127.0.0.1:5000/api'
-        : '/api';
+        const isProduction = window.location.hostname && 
+                             !window.location.hostname.includes('localhost') && 
+                             !window.location.hostname.includes('127.0.0.1') && 
+                             !window.location.hostname.startsWith('192.168.') && 
+                             window.location.protocol !== 'file:';
+        const API_URL = isProduction 
+            ? '/api' 
+            : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
 
 const response = await fetch(`${API_URL}/upload`, {
             method: 'POST',
@@ -278,14 +301,29 @@ async function batchUploadResumes() {
     progressCount.textContent = `0 / ${files.length}`;
     progressFill.style.width = '0%';
     
-    const batchResults = [];
+    batchResults = [];
     
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const formData = new FormData();
         formData.append('resume', file);
         
+        // Attach role data to each batch file
+        const activeRole = getActiveJobRole();
+        const activeJD = document.getElementById('jobDescriptionText')?.value?.trim() || '';
+        if (activeRole) {
+            formData.append('job_role', activeRole);
+            if (activeJD) formData.append('job_description', activeJD);
+        }
         try {
+            const isProduction = window.location.hostname && 
+                                 !window.location.hostname.includes('localhost') && 
+                                 !window.location.hostname.includes('127.0.0.1') && 
+                                 !window.location.hostname.startsWith('192.168.') && 
+                                 window.location.protocol !== 'file:';
+            const API_URL = isProduction 
+                ? '/api' 
+                : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
             const response = await fetch(`${API_URL}/upload`, {
                 method: 'POST',
                 body: formData
@@ -358,6 +396,10 @@ function displayBatchResults(results) {
                     <span class="result-name">${escapeHtml(result.candidateName || result.name)}</span>
                     <span class="fit-score-badge">${result.fitScore || 0}</span>
                 </div>
+                ${result.data && result.data.recommended_role ? `
+                <div class="batch-role-badge">
+                    <i class="fas fa-trophy"></i> ${escapeHtml(result.data.recommended_role)}
+                </div>` : ''}
                 <div class="result-preview">
                     <img src="data:image/png;base64,${result.image_base64}" alt="Preview" 
                          onclick="viewBatchResume(${index})">
@@ -434,9 +476,22 @@ function closeBatchResults() {
 function displayResults(data) {
     const resumeData = data.data;
     const gapAnalysis = data.gap_analysis;
+    const skillGap = data.skill_gap || null;
+    const jobRole = data.job_role || null;
     const fitScore = resumeData.fit_score || 85;
     
     updateScoreCircle(fitScore);
+    
+    // Show role label on score card
+    const scoreCard = document.getElementById('scoreCard');
+    const existingRoleLabel = scoreCard?.querySelector('.score-role-label');
+    if (existingRoleLabel) existingRoleLabel.remove();
+    if (jobRole && scoreCard) {
+        const roleLabel = document.createElement('div');
+        roleLabel.className = 'score-role-label';
+        roleLabel.innerHTML = `<i class="fas fa-crosshairs"></i> ${jobRole}`;
+        scoreCard.insertBefore(roleLabel, scoreCard.firstChild);
+    }
     
     const scoreStatus = document.getElementById('scoreStatus');
     if (fitScore >= 80) {
@@ -489,6 +544,21 @@ function displayResults(data) {
     }
     
     document.getElementById('professionalSummary').textContent = resumeData.professional_summary || 'No summary available.';
+    
+    // Best Suited Role Badge
+    const bestSuitedCard = document.getElementById('bestSuitedRoleCard');
+    if (bestSuitedCard) {
+        const recommendedRole = resumeData.recommended_role;
+        const recommendationReason = resumeData.recommendation_reason;
+        
+        if (recommendedRole) {
+            document.getElementById('suitedRoleTitle').textContent = recommendedRole;
+            document.getElementById('suitedRoleReason').textContent = recommendationReason || '';
+            bestSuitedCard.style.display = 'block';
+        } else {
+            bestSuitedCard.style.display = 'none';
+        }
+    }
     
     const experienceList = document.getElementById('experienceList');
     experienceList.innerHTML = '';
@@ -662,6 +732,106 @@ function displayResults(data) {
                 else if (riskText.includes('Moderate')) riskElement.style.color = '#f97316';
                 else if (riskText.includes('Significant')) riskElement.style.color = '#ef4444';
             }
+        }
+    }
+    
+    // Skill Gap Analysis
+    if (skillGap && jobRole) {
+        displaySkillGapPanel(skillGap, jobRole);
+    } else {
+        const gapCard = document.getElementById('skillGapCard');
+        if (gapCard) gapCard.style.display = 'none';
+    }
+    
+    // Truncation warning
+    if (resumeData.resume_truncated) {
+        const analysisCol = document.querySelector('.analysis-column');
+        const existingWarn = analysisCol?.querySelector('.truncation-warning');
+        if (!existingWarn && analysisCol) {
+            const warn = document.createElement('div');
+            warn.className = 'truncation-warning';
+            warn.innerHTML = `<i class="fas fa-exclamation-triangle"></i>
+                Resume exceeded 20,000 characters — some content was trimmed. 
+                Consider shortening your resume for best results.`;
+            analysisCol.insertBefore(warn, analysisCol.firstChild);
+        }
+    }
+}
+
+// Skill Gap Panel
+function displaySkillGapPanel(skillGap, roleName) {
+    const card = document.getElementById('skillGapCard');
+    if (!card) return;
+    
+    card.style.display = 'block';
+    
+    // Role badge
+    const badge = document.getElementById('roleTargetBadge');
+    if (badge) badge.textContent = roleName;
+    
+    // Match bar
+    const pct = skillGap.match_percentage || 0;
+    const pctEl = document.getElementById('gapMatchPct');
+    const fillEl = document.getElementById('gapBarFill');
+    if (pctEl) pctEl.textContent = `${pct}%`;
+    if (fillEl) {
+        fillEl.style.width = '0%';
+        setTimeout(() => { fillEl.style.width = `${pct}%`; }, 100);
+        // Dynamic colour based on match
+        if (pct >= 70) fillEl.style.background = 'linear-gradient(90deg,#10b981,#059669)';
+        else if (pct >= 40) fillEl.style.background = 'var(--gradient-1)';
+        else fillEl.style.background = 'linear-gradient(90deg,#ef4444,#dc2626)';
+    }
+    
+    // Skills grid
+    const grid = document.getElementById('gapSkillsGrid');
+    if (grid) {
+        grid.innerHTML = '';
+        (skillGap.matched_skills || []).forEach(skill => {
+            const el = document.createElement('span');
+            el.className = 'gap-skill-matched';
+            el.innerHTML = `<i class="fas fa-check"></i> ${escapeHtml(skill)}`;
+            grid.appendChild(el);
+        });
+        (skillGap.missing_skills || []).forEach(skill => {
+            const el = document.createElement('span');
+            el.className = 'gap-skill-missing';
+            el.innerHTML = `<i class="fas fa-times"></i> ${escapeHtml(skill)}`;
+            grid.appendChild(el);
+        });
+        (skillGap.preferred_matched || []).forEach(skill => {
+            const el = document.createElement('span');
+            el.className = 'gap-skill-preferred';
+            el.innerHTML = `<i class="fas fa-star"></i> ${escapeHtml(skill)}`;
+            grid.appendChild(el);
+        });
+        if (grid.children.length === 0) {
+            grid.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">No skill data available</span>';
+        }
+    }
+    
+    // Meta row
+    const expEl = document.getElementById('gapExpPct');
+    const certEl = document.getElementById('gapCertPct');
+    if (expEl) expEl.textContent = `${skillGap.experience_match_pct || 0}%`;
+    if (certEl) certEl.textContent = `${skillGap.certification_match_pct || 0}%`;
+    
+    // Recommendations
+    const recDiv = document.getElementById('gapRecommendations');
+    if (recDiv) {
+        recDiv.innerHTML = '';
+        const recs = skillGap.recommendations || [];
+        if (recs.length > 0) {
+            const header = document.createElement('div');
+            header.className = 'gap-rec-header';
+            header.innerHTML = `<i class="fas fa-lightbulb"></i> Recommendations`;
+            recDiv.appendChild(header);
+            recs.forEach(rec => {
+                const item = document.createElement('div');
+                item.className = 'gap-rec-item';
+                item.innerHTML = `<i class="fas fa-arrow-right"></i> ${escapeHtml(rec)}`;
+                recDiv.appendChild(item);
+            });
         }
     }
 }
@@ -881,6 +1051,104 @@ themeToggle.addEventListener('click', toggleTheme);
 downloadBtn.addEventListener('click', downloadImage);
 closeResults.addEventListener('click', closeResultsHandler);
 
+// Role Selector Setup
+function getActiveJobRole() {
+    const sel = document.getElementById('jobRoleSelect');
+    const custom = document.getElementById('customRoleInput');
+    if (!sel) return null;
+    if (sel.value === '__custom__') {
+        const customVal = custom?.value?.trim();
+        return customVal || null;
+    }
+    return sel.value || null;
+}
+
+async function setupRoleSelector() {
+    const select = document.getElementById('jobRoleSelect');
+    if (!select) return;
+    try {
+        const isProduction = window.location.hostname && 
+                             !window.location.hostname.includes('localhost') && 
+                             !window.location.hostname.includes('127.0.0.1') && 
+                             !window.location.hostname.startsWith('192.168.') && 
+                             window.location.protocol !== 'file:';
+        const API_URL = isProduction 
+            ? '/api' 
+            : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
+        const res = await fetch(`${API_URL}/job-roles`);
+        if (res.ok) {
+            const data = await res.json();
+            (data.roles || []).forEach(role => {
+                const opt = document.createElement('option');
+                opt.value = role;
+                opt.textContent = role;
+                select.appendChild(opt);
+            });
+        }
+    } catch(e) {
+        console.warn('Could not load job roles:', e);
+    }
+    
+    const customWrapper = document.getElementById('customRoleWrapper');
+    const clearBtn = document.getElementById('roleClearBtn');
+    const badge = document.getElementById('roleSelectedBadge');
+    const badgeName = document.getElementById('roleSelectedName');
+    const customInput = document.getElementById('customRoleInput');
+    const jdToggle = document.getElementById('jdToggleBtn');
+    const jdWrapper = document.getElementById('jdTextareaWrapper');
+    const jdChevron = document.getElementById('jdChevron');
+    const jdTextarea = document.getElementById('jobDescriptionText');
+    const jdCount = document.getElementById('jdCharCount');
+    
+    function updateBadge() {
+        const role = getActiveJobRole();
+        if (role) {
+            badge.style.display = 'flex';
+            badgeName.textContent = role;
+            clearBtn.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+            clearBtn.style.display = 'none';
+        }
+    }
+    
+    select.addEventListener('change', () => {
+        if (select.value === '__custom__') {
+            customWrapper.style.display = 'block';
+            customInput.focus();
+        } else {
+            customWrapper.style.display = 'none';
+        }
+        updateBadge();
+    });
+    
+    customInput?.addEventListener('input', updateBadge);
+    
+    clearBtn?.addEventListener('click', () => {
+        select.value = '';
+        if (customInput) customInput.value = '';
+        if (jdTextarea) jdTextarea.value = '';
+        customWrapper.style.display = 'none';
+        jdWrapper.style.display = 'none';
+        jdChevron?.classList.remove('open');
+        badge.style.display = 'none';
+        clearBtn.style.display = 'none';
+        if (jdCount) jdCount.textContent = '0 / 4000 characters';
+    });
+    
+    jdToggle?.addEventListener('click', () => {
+        const isOpen = jdWrapper.style.display !== 'none';
+        jdWrapper.style.display = isOpen ? 'none' : 'block';
+        jdChevron?.classList.toggle('open', !isOpen);
+    });
+    
+    jdTextarea?.addEventListener('input', () => {
+        const len = jdTextarea.value.length;
+        if (jdCount) jdCount.textContent = `${len} / 4000 characters`;
+        if (len > 4000) jdTextarea.value = jdTextarea.value.slice(0, 4000);
+    });
+}
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && resultsSection.style.display === 'block') {
         closeResultsHandler();
@@ -914,6 +1182,7 @@ initTheme();
 setupFileSelection();
 setupUploadArea();
 setupPreviewModal();
+setupRoleSelector();
 
 // Store batch results globally
 let batchResults = [];

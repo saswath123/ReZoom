@@ -1,0 +1,107 @@
+{
+  "Software Engineer": {
+    "required_skills": ["Python", "Java", "JavaScript", "SQL", "Git", "Data Structures", "Algorithms", "REST APIs", "Unit Testing"],
+    "preferred_skills": ["AWS", "Docker", "Kubernetes", "CI/CD", "Microservices", "TypeScript"],
+    "certifications": ["AWS Certified Developer", "Oracle Java Certification", "Microsoft Azure Developer"],
+    "min_experience_years": 2,
+    "keywords": ["software development", "coding", "programming", "software engineer", "backend", "system design", "debugging", "code review"]
+  },
+  "Data Scientist": {
+    "required_skills": ["Python", "SQL", "Statistics", "Machine Learning", "Pandas", "NumPy", "Scikit-learn", "Data Analysis", "Data Visualization"],
+    "preferred_skills": ["TensorFlow", "PyTorch", "AWS SageMaker", "Spark", "Tableau", "Power BI", "Deep Learning", "NLP"],
+    "certifications": ["AWS Certified Machine Learning", "Google Professional Data Engineer", "IBM Data Science Professional"],
+    "min_experience_years": 2,
+    "keywords": ["data analysis", "modeling", "prediction", "feature engineering", "EDA", "statistical analysis", "experimentation", "A/B testing"]
+  },
+  "Product Manager": {
+    "required_skills": ["Product Roadmap", "Agile", "User Stories", "Stakeholder Management", "Market Research", "Product Strategy", "KPIs", "Prioritization"],
+    "preferred_skills": ["SQL", "Jira", "Figma", "A/B Testing", "OKRs", "Data Analysis", "Go-to-Market"],
+    "certifications": ["Certified Scrum Product Owner (CSPO)", "Product Management Certificate", "PMP"],
+    "min_experience_years": 3,
+    "keywords": ["product development", "product lifecycle", "roadmap", "user research", "cross-functional", "launch", "growth", "metrics"]
+  },
+  "DevOps Engineer": {
+    "required_skills": ["Docker", "Kubernetes", "CI/CD", "Jenkins", "Linux", "Bash", "Git", "Infrastructure as Code", "Monitoring"],
+    "preferred_skills": ["Terraform", "Ansible", "AWS", "Azure", "GCP", "Prometheus", "Grafana", "Helm", "ArgoCD"],
+    "certifications": ["AWS DevOps Engineer", "Certified Kubernetes Administrator (CKA)", "HashiCorp Terraform Associate"],
+    "min_experience_years": 3,
+    "keywords": ["automation", "deployment", "infrastructure", "pipeline", "reliability", "SRE", "DevSecOps", "scalability"]
+  },
+  "Cloud Architect": {
+    "required_skills": ["AWS", "Azure", "GCP", "Cloud Architecture", "Networking", "Security", "Infrastructure as Code", "Terraform", "Cost Optimization"],
+    "preferred_skills": ["Kubernetes", "Serverless", "Multi-cloud", "FinOps", "CloudFormation", "Pulumi", "Zero Trust"],
+    "certifications": ["AWS Solutions Architect Professional", "Google Cloud Professional Cloud Architect", "Azure Solutions Architect Expert"],
+    "min_experience_years": 6,
+    "keywords": ["cloud migration", "architecture design", "scalability", "disaster recovery", "high availability", "cloud native", "well-architected"]
+  },
+  "Full Stack Developer": {
+    "required_skills": ["JavaScript", "React", "Node.js", "SQL", "REST APIs", "HTML", "CSS", "Git", "MongoDB"],
+    "preferred_skills": ["TypeScript", "Next.js", "GraphQL", "Docker", "Redis", "AWS", "PostgreSQL", "Vue.js"],
+    "certifications": ["MongoDB Certified Developer", "AWS Certified Developer", "Google Associate Cloud Engineer"],
+    "min_experience_years": 2,
+    "keywords": ["full stack", "frontend", "backend", "web development", "responsive design", "API integration", "database design"]
+  },
+  "Frontend Developer": {
+    "required_skills": ["JavaScript", "React", "HTML", "CSS", "TypeScript", "Responsive Design", "REST APIs", "Git", "Browser DevTools"],
+    "preferred_skills": ["Next.js", "Vue.js", "Angular", "Webpack", "Jest", "Accessibility", "Performance Optimization", "Figma"],
+    "certifications": ["Google UX Design Certificate", "Meta Frontend Developer Certificate", "W3C Web Accessibility"],
+    "min_experience_years": 1,
+    "keywords": ["UI development", "user interface", "web design", "component library", "cross-browser", "mobile-first", "animations", "state management"]
+  },
+  "Backend Developer": {
+    "required_skills": ["Python", "Java", "Node.js", "SQL", "REST APIs", "Microservices", "Git", "Authentication", "Database Design"],
+    "preferred_skills": ["Go", "Rust", "Kafka", "Redis", "Docker", "GraphQL", "gRPC", "PostgreSQL", "MongoDB"],
+    "certifications": ["Oracle Database Certification", "AWS Certified Developer", "Spring Professional Certification"],
+    "min_experience_years": 2,
+    "keywords": ["server-side", "API development", "database", "performance", "scalability", "security", "caching", "message queues"]
+  },
+  "AI/ML Engineer": {
+    "required_skills": ["Python", "TensorFlow", "PyTorch", "Machine Learning", "Deep Learning", "NLP", "Data Preprocessing", "Model Deployment", "MLOps"],
+    "preferred_skills": ["LangChain", "Hugging Face", "CUDA", "Ray", "Kubeflow", "AWS SageMaker", "Vector Databases", "LLMs", "Generative AI"],
+    "certifications": ["AWS Certified Machine Learning Specialty", "Google Professional ML Engineer", "TensorFlow Developer Certificate"],
+    "min_experience_years": 2,
+    "keywords": ["model training", "inference", "fine-tuning", "neural networks", "computer vision", "transformers", "reinforcement learning", "AI research"]
+  },
+  "Cybersecurity Analyst": {
+    "required_skills": ["Network Security", "SIEM", "Vulnerability Assessment", "Penetration Testing", "Incident Response", "Firewalls", "Risk Analysis", "SOC"],
+    "preferred_skills": ["Splunk", "Wireshark", "Metasploit", "MITRE ATT&CK", "Zero Trust", "Cloud Security", "Forensics", "Malware Analysis"],
+    "certifications": ["CompTIA Security+", "CISSP", "CEH (Certified Ethical Hacker)", "CISM"],
+    "min_experience_years": 2,
+    "keywords": ["threat detection", "security operations", "incident response", "vulnerability management", "compliance", "risk management", "security audit"]
+  },
+  "Project Manager": {
+    "required_skills": ["Project Planning", "Agile", "Scrum", "Risk Management", "Budget Management", "Stakeholder Communication", "MS Project", "Jira"],
+    "preferred_skills": ["PMP", "Kanban", "Resource Management", "Change Management", "Confluence", "Power BI", "Earned Value Management"],
+    "certifications": ["PMP (Project Management Professional)", "Certified Scrum Master (CSM)", "PRINCE2", "PMI-ACP"],
+    "min_experience_years": 4,
+    "keywords": ["project delivery", "timeline", "milestones", "cross-functional teams", "sprint planning", "retrospective", "escalation", "status reporting"]
+  },
+  "Business Analyst": {
+    "required_skills": ["Requirements Gathering", "Business Process Analysis", "SQL", "Data Analysis", "Stakeholder Management", "Use Cases", "Wireframes", "Excel"],
+    "preferred_skills": ["Power BI", "Tableau", "Jira", "Visio", "Python", "BPMN", "UML", "Agile", "UAT"],
+    "certifications": ["CBAP (Certified Business Analysis Professional)", "PMI-PBA", "IIBA Entry Certificate"],
+    "min_experience_years": 2,
+    "keywords": ["gap analysis", "as-is to-be", "process improvement", "functional requirements", "user acceptance testing", "reporting", "KPIs", "business case"]
+  },
+  "QA Engineer": {
+    "required_skills": ["Manual Testing", "Automation Testing", "Selenium", "Test Cases", "Bug Reporting", "API Testing", "SQL", "Test Planning"],
+    "preferred_skills": ["Cypress", "Playwright", "Postman", "JMeter", "CI/CD", "Python", "Java", "Performance Testing", "Security Testing"],
+    "certifications": ["ISTQB Foundation", "Certified Software Tester (CST)", "AWS Developer Associate"],
+    "min_experience_years": 1,
+    "keywords": ["quality assurance", "test automation", "regression testing", "defect tracking", "test strategy", "load testing", "end-to-end testing"]
+  },
+  "System Administrator": {
+    "required_skills": ["Linux", "Windows Server", "Active Directory", "Networking", "Bash Scripting", "DNS", "DHCP", "Backup & Recovery", "Virtualization"],
+    "preferred_skills": ["PowerShell", "Ansible", "VMware", "Docker", "AWS", "Nagios", "Zabbix", "Exchange Server", "Office 365"],
+    "certifications": ["CompTIA A+", "CompTIA Network+", "MCSA", "Red Hat Certified System Administrator (RHCSA)"],
+    "min_experience_years": 2,
+    "keywords": ["server management", "system maintenance", "patch management", "user administration", "uptime", "troubleshooting", "infrastructure", "helpdesk"]
+  },
+  "Database Administrator": {
+    "required_skills": ["SQL", "PostgreSQL", "MySQL", "Oracle", "Database Design", "Performance Tuning", "Backup & Recovery", "Data Modeling", "Indexing"],
+    "preferred_skills": ["MongoDB", "Redis", "Cassandra", "AWS RDS", "Snowflake", "ETL", "Replication", "Partitioning", "PL/SQL"],
+    "certifications": ["Oracle Database Administrator", "Microsoft Database Administrator", "AWS Certified Database Specialty"],
+    "min_experience_years": 3,
+    "keywords": ["database optimization", "query tuning", "schema design", "data integrity", "high availability", "disaster recovery", "data migration", "stored procedures"]
+  }
+}
