@@ -14,33 +14,26 @@ client = Groq(
     http_client=http_client
 )
 
-# Keywords that indicate unprofessional resume
 UNPROFESSIONAL_KEYWORDS = {
     'urgent': 30, 'urgently': 35, 'bored': 40, 'bored at home': 45,
     'please hire': 40, 'please hire me': 45, 'genius': 35,
     'can do any job': 40, 'whatsapp': 25, 'instagram': 25,
     'youtube': 20, 'gaming': 25, 'sleeping': 30, 'timepass': 35,
     "don't remember": 30, 'some school': 35, 'some college': 35,
-    'need job': 30, 'hardworking': 15, 'tiktok': 25, 'pubg': 25,
-    'chicken dinner': 30, 'facebook': 20
+    'need job': 30, 'tiktok': 25, 'pubg': 25, 'facebook': 20
 }
 
 
 def analyze_resume(resume_text):
-    """Enhanced LLM parsing with better role extraction"""
+    """Enhanced LLM parsing with strengths and growth areas"""
     
     if not resume_text or len(resume_text.strip()) < 50:
         return generate_fallback_data(resume_text)
     
-    # Check for unprofessional content first
     resume_lower = resume_text.lower()
-    unprofessional_score = 0
-    for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items():
-        if keyword in resume_lower:
-            unprofessional_score += penalty
+    unprofessional_score = sum(penalty for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items() if keyword in resume_lower)
     
     if unprofessional_score > 50:
-        print(f"⚠️ Highly unprofessional resume detected")
         return generate_fallback_data(resume_text, is_worst=True)
     
     if len(resume_text) > 8000:
@@ -52,35 +45,43 @@ def analyze_resume(resume_text):
     Extract the following information carefully:
 
     {{
-        "name": "Full name from resume (first and last name)",
-        "current_role": "Current or most recent job title. Look for phrases like 'Senior Engineer', 'Product Manager', 'Data Scientist', etc. Extract exactly as written.",
-        "total_experience_years": number (extract years of experience from summary or work history),
-        "location": "City, State or City, Country from contact section",
+        "name": "Full name",
+        "current_role": "Current job title",
+        "total_experience_years": number,
+        "location": "City, State",
         "email": "email address",
         "phone": "phone number",
-        "linkedin": "LinkedIn URL if present",
-        "professional_summary": "Professional summary or about section (2-3 sentences)",
+        "linkedin": "LinkedIn URL",
+        "professional_summary": "2-3 sentence summary",
         "skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5"],
         "certifications": [],
         "education": {{
-            "degree": "Degree name (e.g., B.Tech, MBA, MS)",
-            "institution": "University or college name",
-            "year": "Graduation year (4-digit number)"
+            "degree": "Degree name",
+            "institution": "University name",
+            "year": "Graduation year"
         }},
         "latest_3_experiences": [
             {{
                 "company": "Company name",
                 "role": "Job title",
-                "duration": "Start year - End year (e.g., 2020-2024 or 2022-Present)",
-                "responsibilities": ["Key responsibility 1", "Key responsibility 2"]
+                "duration": "2020-2024 or 2022-Present",
+                "responsibilities": ["Achievement 1", "Achievement 2"]
             }}
         ],
         "fit_score": 75,
-        "strengths": ["Strength 1", "Strength 2"],
-        "areas_for_improvement": ["Improvement 1", "Improvement 2"],
-        "recommended_role": "Best matching job role based on experience",
-        "education_raw": ["Full education text with years"],
-        "experience_raw": ["Full experience text with years"]
+        "strengths": [
+            "Extract a key technical strength",
+            "Extract a leadership/soft skill strength", 
+            "Extract an achievement-based strength"
+        ],
+        "areas_for_improvement": [
+            "Extract a missing skill or certification",
+            "Extract a formatting or content issue",
+            "Extract a career gap or missing detail"
+        ],
+        "recommended_role": "Best matching job role",
+        "education_raw": ["Full education text"],
+        "experience_raw": ["Full experience text"]
     }}
 
     Resume Text:
@@ -94,7 +95,7 @@ def analyze_resume(resume_text):
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
+            temperature=0.3,
             max_tokens=2000
         )
         
@@ -104,18 +105,27 @@ def analyze_resume(resume_text):
         
         parsed_data = json.loads(result)
         
-        # Ensure current_role is extracted
+        # Ensure strengths exist
+        if not parsed_data.get('strengths') or len(parsed_data.get('strengths', [])) == 0:
+            parsed_data['strengths'] = [
+                "Professional experience in relevant field",
+                "Technical skills alignment",
+                "Good communication skills"
+            ]
+        
+        # Ensure areas_for_improvement exist
+        if not parsed_data.get('areas_for_improvement') or len(parsed_data.get('areas_for_improvement', [])) == 0:
+            parsed_data['areas_for_improvement'] = [
+                "Add more quantifiable achievements",
+                "Include relevant certifications",
+                "Improve resume formatting"
+            ]
+        
+        # Extract role if missing
         if not parsed_data.get('current_role') or parsed_data.get('current_role') == 'Professional':
-            # Try to extract from resume text if LLM missed it
-            role_match = re.search(r'(?:Senior|Lead|Principal|Junior|Associate)?\s*(?:Software|Full Stack|Data|Product|Project|Engineering|Developer|Engineer|Analyst|Manager|Director|Architect)', resume_text, re.IGNORECASE)
+            role_match = re.search(r'(?:Senior|Lead|Principal)?\s*(?:Software|Full Stack|Data|Product|Project|Cloud|DevOps)\s*(?:Engineer|Developer|Architect|Analyst|Manager)', resume_text, re.IGNORECASE)
             if role_match:
                 parsed_data['current_role'] = role_match.group(0).strip()
-        
-        # Ensure name is extracted
-        if not parsed_data.get('name') or parsed_data.get('name') == 'Candidate':
-            name_match = re.search(r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', resume_text[:200], re.MULTILINE)
-            if name_match:
-                parsed_data['name'] = name_match.group(1)
         
         return parsed_data
         
@@ -125,39 +135,34 @@ def analyze_resume(resume_text):
 
 
 def generate_fallback_data(resume_text, is_worst=False):
-    """Fallback when LLM fails - with role extraction from text"""
+    """Fallback with proper strengths and growth areas"""
     
     resume_lower = resume_text.lower() if resume_text else ""
     
-    # Try to extract role from text
+    # Extract role
     role = "Professional"
     role_patterns = [
-        r'(?:Senior|Lead|Principal|Junior|Associate)?\s*(?:Software|Full Stack|Data|Product|Project|Cloud|DevOps|Frontend|Backend)\s*(?:Engineer|Developer|Architect|Analyst|Manager)',
-        r'(?:Python|Java|JavaScript|React|AWS|Azure)\s*(?:Developer|Engineer)',
-        r'(?:Machine Learning|Data|AI|GenAI)\s*(?:Engineer|Scientist)',
-        r'(?:Product|Project|Program)\s*(?:Manager)',
+        r'(?:Senior|Lead|Principal)?\s*(?:Software|Full Stack|Data|Product|Project|Cloud|DevOps)\s*(?:Engineer|Developer|Architect|Analyst|Manager)',
+        r'(?:Python|Java|JavaScript|React|AWS)\s*(?:Developer|Engineer)',
     ]
-    
     for pattern in role_patterns:
         match = re.search(pattern, resume_text, re.IGNORECASE) if resume_text else None
         if match:
             role = match.group(0).strip()
             break
     
-    # Try to extract name
+    # Extract name
     name = "Candidate"
     name_match = re.search(r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', resume_text[:200] if resume_text else "", re.MULTILINE)
     if name_match:
         name = name_match.group(1)
     
-    # Try to extract email
+    # Extract email and phone
     email = "Not Provided"
+    phone = "Not Provided"
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', resume_text) if resume_text else None
     if email_match:
         email = email_match.group()
-    
-    # Try to extract phone
-    phone = "Not Provided"
     phone_match = re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', resume_text) if resume_text else None
     if phone_match:
         phone = phone_match.group()
@@ -171,26 +176,25 @@ def generate_fallback_data(resume_text, is_worst=False):
             "email": email,
             "phone": phone,
             "linkedin": "Not Provided",
-            "professional_summary": "This resume requires complete rewrite - contains unprofessional content",
+            "professional_summary": "This resume requires complete rewrite",
             "skills": ["Not specified"],
             "certifications": [],
             "education": {"degree": "Not Specified", "institution": "Not Specified", "year": "Not Specified"},
             "latest_3_experiences": [],
             "fit_score": 15,
-            "strengths": ["Not available"],
+            "strengths": ["Not available - Resume needs complete rewrite"],
             "areas_for_improvement": [
                 "Complete resume rewrite required",
                 "Remove all unprofessional language",
                 "Add proper work experience with dates",
-                "Include relevant professional skills"
+                "Include relevant professional skills",
+                "Add complete contact information"
             ],
             "recommended_role": "Entry Level",
             "education_raw": ["No year mentioned"],
             "experience_raw": ["No year mentioned"],
             "red_flags": {
                 "unprofessional_content": True,
-                "unprofessional_language": True,
-                "desperate_tone": True,
                 "missing_contact_info": email == "Not Provided" or phone == "Not Provided",
                 "no_work_experience": True,
                 "irrelevant_skills": True,
@@ -199,9 +203,9 @@ def generate_fallback_data(resume_text, is_worst=False):
             "resume_quality_score": 15,
             "resume_quality_verdict": "Worst",
             "quality_observations": [
-                "⚠️ CRITICAL: Resume contains extremely unprofessional content",
-                "⚠️ No valid work experience with proper details",
-                "⚠️ Complete resume rewrite is strongly recommended"
+                "⚠️ CRITICAL: Resume contains unprofessional content",
+                "⚠️ No valid work experience documented",
+                "⚠️ Complete resume rewrite needed"
             ]
         }
     else:
@@ -219,14 +223,22 @@ def generate_fallback_data(resume_text, is_worst=False):
             "education": {"degree": "Not Specified", "institution": "Not Specified", "year": "Not Specified"},
             "latest_3_experiences": [],
             "fit_score": 50,
-            "strengths": ["Not available"],
-            "areas_for_improvement": ["Complete all sections", "Add professional details"],
-            "recommended_role": "Entry Level",
+            "strengths": [
+                "Professional experience in relevant field",
+                "Technical skills foundation",
+                "Good communication abilities"
+            ],
+            "areas_for_improvement": [
+                "Complete all sections with detailed information",
+                "Add quantifiable achievements to experience",
+                "Include relevant certifications",
+                "Add proper dates to education and experience"
+            ],
+            "recommended_role": "Entry Level Position",
             "education_raw": ["No year mentioned"],
             "experience_raw": ["No year mentioned"],
             "red_flags": {
                 "missing_contact_info": email == "Not Provided" or phone == "Not Provided",
-                "no_work_experience": True,
                 "missing_dates": True
             },
             "resume_quality_score": 50,
@@ -234,6 +246,7 @@ def generate_fallback_data(resume_text, is_worst=False):
             "quality_observations": [
                 "Missing professional contact information",
                 "Work experience needs more details",
-                "Education section incomplete"
+                "Education section incomplete",
+                "Add dates to experience and education"
             ]
         }

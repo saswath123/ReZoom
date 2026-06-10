@@ -199,7 +199,7 @@ class GapAnalyzer:
                         'from_year': current_end,
                         'to_year': next_start,
                         'duration_years': gap_years,
-                        'description': f"Employment gap of {gap_years} year{'s' if gap_years != 1 else ''}"
+                        'description': f"{current_end} to {next_start} ({gap_years} year{'s' if gap_years != 1 else ''})"
                     })
         
         return gaps
