@@ -3,28 +3,34 @@ import os
 from datetime import datetime
 
 def safe_str(value):
-    """Convert None to empty string safely"""
     return str(value) if value is not None else ""
 
 
 def get_font(size, bold=False):
-    """Get Arial font - works on Mac, Linux, Windows, Vercel"""
-    arial_paths = [
-        "/System/Library/Fonts/Arial.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    """Get font compatible with Vercel (Linux) environment"""
+    
+    # Fonts available on Vercel Linux (in priority order)
+    if bold:
+        bold_fonts = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+            "/System/Library/Fonts/Helvetica-Bold.ttf",  # Mac fallback
+        ]
+        for path in bold_fonts:
+            try:
+                return ImageFont.truetype(path, size)
+            except:
+                continue
+    
+    regular_fonts = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ]
-    arial_bold_paths = [
-        "/System/Library/Fonts/Arial Bold.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",  # Mac fallback
     ]
     
-    paths = arial_bold_paths if bold else arial_paths
-    
-    for path in paths:
+    for path in regular_fonts:
         try:
             return ImageFont.truetype(path, size)
         except:
@@ -34,7 +40,6 @@ def get_font(size, bold=False):
 
 
 def wrap_text(draw, text, font, max_width):
-    """Wrap text to fit within max_width"""
     if not text:
         return []
     
@@ -69,19 +74,15 @@ def wrap_text(draw, text, font, max_width):
 
 
 def generate_resume_image(data, gap_analysis, output_path):
-    """Generate professional resume image"""
     return generate_professional_template(data, gap_analysis, output_path)
 
 
 def generate_professional_template(data, gap_analysis, output_path):
-    """Generate a clean, professional corporate resume"""
-    
     width = 1920
     height = 1350
     img = Image.new('RGB', (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
     
-    # Color palette
     NAVY = (26, 35, 80)
     GOLD = (212, 175, 55)
     GRAY_DARK = (51, 51, 51)
@@ -89,48 +90,43 @@ def generate_professional_template(data, gap_analysis, output_path):
     WHITE = (255, 255, 255)
     LIGHT_GRAY = (248, 248, 248)
     
-    # Fonts - Arial
-    FONT_NAME = get_font(42, bold=True)
+    FONT_NAME = get_font(44, bold=True)
     FONT_ROLE = get_font(24, bold=True)
     FONT_SECTION = get_font(20, bold=True)
     FONT_SUBHEADING = get_font(18, bold=True)
-    FONT_BODY = get_font(15)
-    FONT_SMALL = get_font(13)
-    FONT_FOOTER = get_font(11)
+    FONT_BODY = get_font(15, bold=False)
+    FONT_SMALL = get_font(13, bold=False)
+    FONT_FOOTER = get_font(11, bold=False)
     
-    # ===== LEFT PANEL =====
+    # LEFT PANEL
     panel_width = 480
     draw.rectangle([0, 0, panel_width, height], fill=LIGHT_GRAY)
     
-    # Name
     name = safe_str(data.get('name', 'RAJESH VERMA')).upper()
     draw.text((40, 50), name, fill=NAVY, font=FONT_NAME)
     
-    # Role
     role = safe_str(data.get('current_role', 'Senior Full Stack Engineer | Cloud Architect'))
     draw.text((40, 110), role, fill=GOLD, font=FONT_ROLE)
     
-    # Contact Section
     y = 170
     draw.text((40, y), "CONTACT", fill=NAVY, font=FONT_SECTION)
     y += 35
     
-    phone = safe_str(data.get('phone', '+1 (206) 555-0123'))
+    phone = safe_str(data.get('phone', ''))
     if phone and phone not in ['Not Provided', 'Not found', '']:
         draw.text((40, y), f"Phone: {phone}", fill=GRAY_DARK, font=FONT_SMALL)
         y += 28
     
-    email = safe_str(data.get('email', 'rajesh.verma@email.com'))
+    email = safe_str(data.get('email', ''))
     if email and email not in ['Not Provided', 'Not found', '']:
         draw.text((40, y), f"Email: {email}", fill=GRAY_DARK, font=FONT_SMALL)
         y += 28
     
-    location = safe_str(data.get('location', 'Seattle, WA'))
+    location = safe_str(data.get('location', ''))
     if location and location not in ['Not Specified', '']:
         draw.text((40, y), f"Location: {location}", fill=GRAY_DARK, font=FONT_SMALL)
         y += 40
     
-    # Skills Section
     draw.text((40, y), "SKILLS", fill=NAVY, font=FONT_SECTION)
     y += 35
     
@@ -141,53 +137,47 @@ def generate_professional_template(data, gap_analysis, output_path):
         if y > 800:
             break
     
-    # ===== RIGHT PANEL =====
+    # RIGHT PANEL
     right_x = panel_width + 50
     max_width = width - right_x - 50
     
-    # Name in right panel
     name_small = safe_str(data.get('name', 'RAJESH VERMA'))
     draw.text((right_x, 50), name_small, fill=NAVY, font=FONT_NAME)
     
-    # Role in right panel
     role_small = safe_str(data.get('current_role', 'Senior Full Stack Engineer | Cloud Architect'))
     draw.text((right_x, 100), role_small, fill=GOLD, font=FONT_ROLE)
     
-    # Divider line
     draw.line([(right_x, 140), (width - 50, 140)], fill=GOLD, width=2)
     
-    # Professional Summary
     y = 170
     draw.text((right_x, y), "PROFESSIONAL SUMMARY", fill=NAVY, font=FONT_SECTION)
     draw.line([(right_x, y + 25), (right_x + 180, y + 25)], fill=GOLD, width=2)
     y += 45
     
-    summary = safe_str(data.get('professional_summary', 
-        "Senior Full Stack Engineer with 9+ years of experience architecting and building scalable web applications using React, Node.js, Python, and AWS."))
+    summary = safe_str(data.get('professional_summary', ''))
     for line in wrap_text(draw, summary, FONT_BODY, max_width)[:4]:
         draw.text((right_x, y), line, fill=GRAY_MEDIUM, font=FONT_BODY)
         y += 26
     
-    # Work Experience
     y += 30
     draw.text((right_x, y), "WORK EXPERIENCE", fill=NAVY, font=FONT_SECTION)
     draw.line([(right_x, y + 25), (right_x + 200, y + 25)], fill=GOLD, width=2)
     y += 50
     
     experiences = data.get('latest_3_experiences', [])
-    
     for exp in experiences[:3]:
         if y > 1000:
             break
         
-        role = safe_str(exp.get('role', ''))
+        role_exp = safe_str(exp.get('role', ''))
         company = safe_str(exp.get('company', ''))
+        duration = safe_str(exp.get('duration', ''))
         
-        # Job title and company on same line
-        draw.text((right_x, y), f"{role} | {company}", fill=NAVY, font=FONT_SUBHEADING)
+        draw.text((right_x, y), f"{role_exp} | {company}", fill=NAVY, font=FONT_SUBHEADING)
+        if duration:
+            draw.text((width - 200, y), duration, fill=GOLD, font=FONT_SMALL)
         y += 35
         
-        # Responsibilities
         for resp in exp.get('responsibilities', [])[:4]:
             resp_text = safe_str(resp)[:100]
             draw.text((right_x + 15, y), "-", fill=GOLD, font=FONT_BODY)
@@ -196,21 +186,18 @@ def generate_professional_template(data, gap_analysis, output_path):
         
         y += 15
     
-    # Education
     if y < 1050:
         draw.text((right_x, y), "EDUCATION", fill=NAVY, font=FONT_SECTION)
         draw.line([(right_x, y + 25), (right_x + 150, y + 25)], fill=GOLD, width=2)
         y += 50
         
         edu = data.get('education', {})
-        degree = safe_str(edu.get('degree', 'Master of Science in Computer Science'))
-        institution = safe_str(edu.get('institution', 'Carnegie Mellon University'))
+        degree = safe_str(edu.get('degree', ''))
+        institution = safe_str(edu.get('institution', ''))
         
         if degree:
             draw.text((right_x, y), f"{degree} | {institution}", fill=NAVY, font=FONT_SUBHEADING)
-            y += 35
     
-    # Quality Score Badge
     quality_score = data.get('resume_quality_score', 85)
     if quality_score >= 80:
         badge_color = (46, 204, 113)
@@ -227,7 +214,6 @@ def generate_professional_template(data, gap_analysis, output_path):
     draw.text((badge_x + 25, badge_y + 30), str(quality_score), fill=WHITE, font=get_font(32, bold=True))
     draw.text((badge_x + 15, badge_y + 62), "QUALITY", fill=WHITE, font=FONT_SMALL)
     
-    # Footer
     footer_y = height - 40
     footer_text = f"AI Resume Intelligence Report - Generated {datetime.now().strftime('%B %d, %Y')}"
     draw.text((width // 2 - 240, footer_y), footer_text, fill=GRAY_MEDIUM, font=FONT_FOOTER)
