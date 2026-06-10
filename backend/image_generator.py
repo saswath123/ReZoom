@@ -199,7 +199,7 @@ def generate_professional_template(data, gap_analysis, output_path):
         # Responsibilities
         for resp in exp.get('responsibilities', [])[:3]:
             resp_text = safe_str(resp)[:95]
-            draw.text((right_x + 18, y), "•", fill=GOLD, font=FONT_BODY)
+            draw.text((right_x + 18, y), "-", fill=GOLD, font=FONT_BODY)
             draw.text((right_x + 35, y), resp_text, fill=GRAY_DARK, font=FONT_BODY)
             y += 28
         
@@ -242,7 +242,7 @@ def generate_professional_template(data, gap_analysis, output_path):
     draw.text((badge_x + 18, badge_y + 62), "QUALITY", fill=WHITE, font=FONT_SMALL)
     
     # Footer
-    footer_text = f"AI Resume Intelligence Report • Generated {datetime.now().strftime('%B %d, %Y')}"
+    footer_text = f"AI Resume Intelligence Report - Generated {datetime.now().strftime('%B %d, %Y')}"
     draw.text((width // 2 - 230, height - 35), footer_text, fill=GRAY_MEDIUM, font=FONT_FOOTER)
     
     # Save
