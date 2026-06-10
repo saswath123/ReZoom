@@ -104,13 +104,13 @@ def generate_professional_template(data, gap_analysis, output_path):
     LINE_COLOR = (212, 175, 55)
     
     # Helvetica fonts
-    FONT_NAME = get_font(48, bold=True)
-    FONT_ROLE = get_font(28, bold=True)
-    FONT_SECTION = get_font(22, bold=True)
-    FONT_SUBHEADING = get_font(18, bold=True)
-    FONT_BODY = get_font(16)
-    FONT_SMALL = get_font(13)
-    FONT_FOOTER = get_font(11)
+    FONT_NAME = get_font(53, bold=True)
+    FONT_ROLE = get_font(33, bold=True)
+    FONT_SECTION = get_font(27, bold=True)
+    FONT_SUBHEADING = get_font(23, bold=True)
+    FONT_BODY = get_font(21)
+    FONT_SMALL = get_font(18)
+    FONT_FOOTER = get_font(16)
     
     # ===== LEFT PANEL =====
     panel_width = 520
