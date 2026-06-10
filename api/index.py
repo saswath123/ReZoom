@@ -16,6 +16,31 @@ from llm_parser import analyze_resume
 from image_generator import generate_resume_image
 from gap_analyzer import GapAnalyzer
 
+# Aggressive scoring for unprofessional resumes
+UNPROFESSIONAL_KEYWORDS = {
+    'urgent': 30, 'urgently': 35, 'bored': 40, 'bored at home': 45,
+    'please hire': 40, 'please hire me': 45, 'genius': 35,
+    'can do any job': 40, 'whatsapp': 25, 'instagram': 25,
+    'youtube': 20, 'gaming': 25, 'sleeping': 30, 'timepass': 35,
+    "don't remember": 30, 'some school': 35, 'some college': 35,
+    'need job': 30, 'tiktok': 25, 'pubg': 25, 'chicken dinner': 30,
+    'facebook': 20
+}
+
+def detect_unprofessional_score(extracted_text):
+    """Detect if resume is unprofessional and return score"""
+    text_lower = extracted_text.lower()
+    score = 0
+    for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items():
+        if keyword in text_lower:
+            score += penalty
+    return score
+
+def is_worst_resume(extracted_text):
+    """Check if resume is worst quality"""
+    score = detect_unprofessional_score(extracted_text)
+    return score > 50, score
+
 app = Flask(__name__)
 CORS(app)
 
@@ -31,13 +56,20 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 # ============================================================
-# SCORE CALCULATION FUNCTIONS - WITH NONE HANDLING
+# SCORE CALCULATION FUNCTIONS
 # ============================================================
 
 def calculate_fit_score(structured_data, extracted_text):
     """Calculate JOB FIT score - based on skills, experience, role match only"""
     resume_lower = extracted_text.lower()
+    
+    # Check if worst resume first
+    is_worst, unscore = is_worst_resume(extracted_text)
+    if is_worst:
+        print(f"⚠️ Worst resume detected! Unprofessional score: {unscore}")
+        return 15
     
     # 1. Skills Match (40% weight)
     technical_skills = [
@@ -50,7 +82,7 @@ def calculate_fit_score(structured_data, extracted_text):
     found_skills = sum(1 for skill in technical_skills if skill in resume_lower)
     skills_score = min(40, (found_skills / 8) * 40) if found_skills > 0 else 15
     
-    # 2. Experience Match (30% weight) - FIX None value
+    # 2. Experience Match (30% weight)
     exp_years = structured_data.get('total_experience_years', 0)
     if exp_years is None:
         exp_years = 0
@@ -106,23 +138,26 @@ def calculate_fit_score(structured_data, extracted_text):
 def calculate_quality_score(structured_data, extracted_text):
     """Calculate RESUME QUALITY score - with None handling"""
     resume_lower = extracted_text.lower()
-    score = 100
     
-    # Check for career gaps or breaks
-    if 'gap' in resume_lower or 'break' in resume_lower:
-        score -= 15
+    # Check if worst resume first
+    is_worst, unscore = is_worst_resume(extracted_text)
+    if is_worst:
+        print(f"⚠️ Worst resume detected! Quality score forced to 15")
+        return 15
+    
+    score = 100
     
     # Check for missing dates
     has_years = bool(re.search(r'\b(19[0-9]{2}|20[0-2][0-9]|2030)\b', extracted_text))
     if not has_years:
         score -= 15
     
-    # Check for employment gaps in data - FIX None value
+    # Check for employment gaps in data
     experiences = structured_data.get('latest_3_experiences', [])
     if experiences is None:
         experiences = []
-    if len(experiences) < 2:
-        score -= 10
+    if len(experiences) < 1:
+        score -= 25
     
     # Check for education completeness
     edu = structured_data.get('education', {})
@@ -137,10 +172,16 @@ def calculate_quality_score(structured_data, extracted_text):
     # Check for contact info
     email = structured_data.get('email', '')
     phone = structured_data.get('phone', '')
-    if email is None or email in ['Not Provided', 'Not found', '']:
+    if not email or email in ['Not Provided', 'Not found', '']:
         score -= 10
-    if phone is None or phone in ['Not Provided', 'Not found', '']:
+    if not phone or phone in ['Not Provided', 'Not found', '']:
         score -= 10
+    
+    # Check for generic skills
+    generic_skills = ['communication', 'teamwork', 'problem solving', 'leadership']
+    skills = structured_data.get('skills', [])
+    if skills and all(skill.lower() in generic_skills for skill in skills[:3]):
+        score -= 15
     
     return max(0, min(100, score))
 
@@ -172,9 +213,9 @@ def health():
 @app.route("/api/version", methods=["GET"])
 def version():
     return jsonify({
-        "version": "2026-06-10-v6",
+        "version": "2026-06-10-v7",
         "status": "active",
-        "message": "AI Resume Parser is running"
+        "message": "AI Resume Parser is running with worst resume detection"
     })
 
 
@@ -204,19 +245,52 @@ def upload_resume():
         extracted_text = extract_resume_text(file_path)
         print(f"Extracted text length: {len(extracted_text)} chars")
         
+        # Check for worst resume BEFORE LLM call
+        is_worst, unscore = is_worst_resume(extracted_text)
+        print(f"Unprofessional score: {unscore}, Is worst: {is_worst}")
+        
         # Analyze with LLM
         structured_data = analyze_resume(extracted_text)
         
-        # Calculate scores
-        fit_score = calculate_fit_score(structured_data, extracted_text)
-        quality_score = calculate_quality_score(structured_data, extracted_text)
+        # Force low scores for worst resumes
+        if is_worst:
+            structured_data['fit_score'] = 15
+            structured_data['resume_quality_score'] = 15
+            structured_data['resume_quality_verdict'] = "Worst"
+            structured_data['red_flags'] = {
+                "poor_formatting": True,
+                "missing_contact_info": True,
+                "unprofessional_content": True,
+                "generic_skills": True,
+                "no_work_experience": True,
+                "vague_descriptions": True,
+                "unprofessional_language": True,
+                "missing_dates": True,
+                "over_exaggeration": True,
+                "spelling_grammar_issues": True,
+                "incomplete_education": True,
+                "irrelevant_skills": True,
+                "desperate_tone": True
+            }
+            structured_data['quality_observations'] = [
+                "⚠️ CRITICAL: Resume contains extremely unprofessional content",
+                "⚠️ No valid work experience with proper details",
+                "⚠️ Skills listed are completely irrelevant for professional work",
+                "⚠️ Contains desperate and unprofessional tone",
+                "⚠️ Complete resume rewrite is strongly recommended"
+            ]
+        else:
+            # Calculate scores normally
+            fit_score = calculate_fit_score(structured_data, extracted_text)
+            quality_score = calculate_quality_score(structured_data, extracted_text)
+            
+            structured_data['fit_score'] = fit_score
+            structured_data['resume_quality_score'] = quality_score
+            structured_data['resume_quality_verdict'] = get_quality_verdict(quality_score)
         
-        structured_data['fit_score'] = fit_score
-        structured_data['resume_quality_score'] = quality_score
-        structured_data['resume_quality_verdict'] = get_quality_verdict(quality_score)
-        
-        print(f"Fit Score: {fit_score}")
-        print(f"Quality Score: {quality_score}")
+        print(f"Final Fit Score: {structured_data.get('fit_score')}")
+        print(f"Final Quality Score: {structured_data.get('resume_quality_score')}")
+        print(f"Quality Verdict: {structured_data.get('resume_quality_verdict')}")
         
         # Extract email and phone if missing
         if structured_data.get('email') in [None, 'Not Provided', 'Not found', '']:
@@ -259,7 +333,7 @@ def upload_resume():
             "message": "Resume processed successfully",
             "data": structured_data,
             "image_base64": image_base64,
-            "fit_score": fit_score,
+            "fit_score": structured_data.get('fit_score'),
             "gap_analysis": gap_analysis
         }), 200
         
