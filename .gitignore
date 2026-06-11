@@ -1,19 +1,78 @@
+# ==========================================
+# Environment Variables
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
 # Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python Virtual Environments
 venv/
 .venv/
-__pycache__/
-*.pyc
+env/
+ENV/
 
-# Environment
-.env
+# Python Build Files
+build/
+dist/
+*.egg-info/
+.eggs/
 
-# Generated files
-backend/generated_images/
-backend/generated_ppts/
-backend/uploads/
-*.png
-*.pptx
+# ==========================================
+# Testing & Coverage
+# ==========================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-# IDE
+# ==========================================
+# Type Checking & Linting
+# ==========================================
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# ==========================================
+# Jupyter Notebook
+# ==========================================
+.ipynb_checkpoints/
+
+# ==========================================
+# VS Code
+# ==========================================
 .vscode/
-.idea/
+
+# ==========================================
+# macOS
+# ==========================================
+.DS_Store
+
+# ==========================================
+# Logs
+# ==========================================
+*.log
+
+# ==========================================
+# Runtime Generated Files
+# ==========================================
+backend/generated_images/
+backend/uploads/
+
+# ==========================================
+# Temporary / Scratch Files
+# ==========================================
+scratch/
+
+# ==========================================
+# Misc
+# ==========================================
+*.tmp
+*.temp
+
