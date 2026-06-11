@@ -27,7 +27,7 @@ def crop_to_circle(image, size):
     # Create circular mask
     mask = Image.new("L", (size, size), 0)
     draw_mask = ImageDraw.Draw(mask)
-    draw_mask.ellipse((0, 0, size, size), fill=255)
+    draw_mask.ellipse((0, 0), size, size, fill=255)
     
     # Apply mask
     circular_image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -390,16 +390,56 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     add_text_box(draw, inches_to_pixels(0.4), skills_y, inches_to_pixels(2.2), 
                 inches_to_pixels(0.3), "SKILLS", font_size=28, bold=True, color=COLOR_NAVY)
     
-    skills = data.get('skills', [])
+    skills_p = data.get("skill_proficiency") or []
+    if not skills_p:
+        flat = data.get("skills") or []
+        skills_p = [{"skill": s, "percentage": 80, "category": "Other"} for s in flat[:7]]
+    
+    skills_p = skills_p[:8]
     skill_y = skills_y + inches_to_pixels(0.4)
-    for skill in skills[:8]:
-        if skill:
-            skill_y = add_text_box(draw, inches_to_pixels(0.5), skill_y, inches_to_pixels(2.1), 
-                                  inches_to_pixels(0.25), f"- {safe_str(skill)}", 
-                                  font_size=20, color=COLOR_DARK)
-            skill_y += inches_to_pixels(0.05)
-        if skill_y > inches_to_pixels(7.0):
-            break
+    
+    font_skill_name = get_font(20, bold=True)
+    font_skill_pct = get_font(18)
+    
+    for sp in skills_p:
+        skill_name = safe_str(sp.get("skill", ""))
+        if not skill_name:
+            continue
+        pct = min(100, max(10, int(sp.get("percentage") or 80)))
+        
+        # Skill Name
+        draw.text((inches_to_pixels(0.4), skill_y), skill_name, fill=COLOR_DARK, font=font_skill_name)
+        
+        # Percentage text
+        pct_text = f"{pct}%"
+        try:
+            pct_w = draw.textlength(pct_text, font=font_skill_pct)
+        except:
+            bbox = draw.textbbox((0, 0), pct_text, font=font_skill_pct)
+            pct_w = bbox[2] - bbox[0]
+            
+        right_x = inches_to_pixels(2.6)
+        draw.text((right_x - pct_w, skill_y + 2), pct_text, fill=COLOR_GRAY, font=font_skill_pct)
+        
+        # Progress Bar below
+        bar_y = skill_y + 28
+        bar_h = 8
+        try:
+            draw.rounded_rectangle([inches_to_pixels(0.4), bar_y, right_x, bar_y + bar_h], 
+                                    radius=4, fill=(225, 228, 232))
+            fill_w = int((right_x - inches_to_pixels(0.4)) * pct / 100)
+            if fill_w > 0:
+                draw.rounded_rectangle([inches_to_pixels(0.4), bar_y, inches_to_pixels(0.4) + fill_w, bar_y + bar_h], 
+                                        radius=4, fill=COLOR_GOLD)
+        except AttributeError:
+            draw.rectangle([inches_to_pixels(0.4), bar_y, right_x, bar_y + bar_h], 
+                           fill=(225, 228, 232))
+            fill_w = int((right_x - inches_to_pixels(0.4)) * pct / 100)
+            if fill_w > 0:
+                draw.rectangle([inches_to_pixels(0.4), bar_y, inches_to_pixels(0.4) + fill_w, bar_y + bar_h], 
+                               fill=COLOR_GOLD)
+            
+        skill_y += 56
     
     right_x = inches_to_pixels(3.3)
     content_width = width - right_x - inches_to_pixels(0.5)

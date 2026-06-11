@@ -253,23 +253,198 @@ def job_roles():
     return jsonify({"roles": get_predefined_roles()})
 
 
+
+@app.route("/api/analyze", methods=["POST"])
+def analyze_resume_step():
+    """Step 1: Extract & analyze resume. Returns structured data + skill suggestions.
+    Does NOT generate the PNG image (that happens in /api/generate after skill selection)."""
+    try:
+        print("=" * 50)
+        print("New /api/analyze request")
+
+        if "resume" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        file = request.files["resume"]
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+        if not allowed_file(file.filename):
+            return jsonify({"error": "Invalid file type. Use PDF or DOCX"}), 400
+
+        unique_id = str(uuid.uuid4())[:8]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        saved_filename = f"{timestamp}_{unique_id}_{secure_filename(file.filename or 'upload')}"
+        file_path = os.path.join(UPLOAD_FOLDER, saved_filename)
+        file.save(file_path)
+
+        job_role = request.form.get("job_role", "").strip()
+        job_description = request.form.get("job_description", "").strip()
+
+        extracted_text = extract_resume_text(file_path)
+        print(f"Extracted text length: {len(extracted_text)} chars")
+
+        # Extract profile image
+        profile_image_base64 = None
+        try:
+            profile_bytes, profile_ext = extract_profile_image(file_path)
+            if profile_bytes:
+                profile_image_base64 = base64.b64encode(profile_bytes).decode("utf-8")
+        except Exception as img_err:
+            print(f"Profile image error: {img_err}")
+
+        # Check for worst resume
+        is_worst, unscore = is_worst_resume(extracted_text)
+        structured_data = analyze_resume(extracted_text)
+        if profile_image_base64:
+            structured_data["profile_image_base64"] = profile_image_base64
+
+        skill_gap = None
+        if is_worst:
+            structured_data["fit_score"] = 15
+            structured_data["resume_quality_score"] = 15
+            structured_data["resume_quality_verdict"] = "Worst"
+        else:
+            if job_role:
+                role_requirements = get_role_requirements(job_role)
+                if job_description:
+                    jd_data = extract_skills_from_jd(job_description)
+                    if jd_data:
+                        for field in ["required_skills", "preferred_skills", "certifications", "keywords"]:
+                            if jd_data.get(field):
+                                role_requirements[field] = list(set(
+                                    role_requirements.get(field, []) + jd_data[field]
+                                ))
+                        if jd_data.get("min_experience_years"):
+                            role_requirements["min_experience_years"] = jd_data["min_experience_years"]
+                fit_score = calculate_role_fit_score(structured_data, role_requirements, extracted_text)
+                skill_gap = build_skill_gap_report(structured_data, role_requirements, extracted_text)
+            else:
+                fit_score = calculate_fit_score(structured_data, extracted_text)
+
+            quality_score = calculate_quality_score(structured_data, extracted_text)
+            structured_data["fit_score"] = fit_score
+            structured_data["resume_quality_score"] = quality_score
+            structured_data["resume_quality_verdict"] = get_quality_verdict(quality_score)
+
+        # Extract missing contact fields
+        if structured_data.get("email") in [None, "Not Provided", "Not found", ""]:
+            m = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", extracted_text)
+            if m:
+                structured_data["email"] = m.group()
+        if structured_data.get("phone") in [None, "Not Provided", "Not found", ""]:
+            m = re.search(r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", extracted_text)
+            if m:
+                structured_data["phone"] = m.group()
+
+        # Gap analysis
+        gap_analyzer = GapAnalyzer()
+        education_raw = structured_data.get("education_raw") or []
+        experience_raw = structured_data.get("experience_raw") or []
+        gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
+
+        # Build AI skill recommendations (top 7 by percentage)
+        skill_proficiency = structured_data.get("skill_proficiency") or []
+        if not skill_proficiency:
+            flat = structured_data.get("skills") or []
+            skill_proficiency = [{"skill": s, "percentage": 80, "category": "Other"} for s in flat[:14]]
+
+        # Sort by percentage descending; top 7 are "AI recommended"
+        skill_proficiency.sort(key=lambda x: x.get("percentage", 0), reverse=True)
+        top7 = skill_proficiency[:7]
+        rest = skill_proficiency[7:]
+
+        # Clean up uploaded file
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "message": "Resume analyzed successfully",
+            "data": structured_data,
+            "recommended_skills": top7,
+            "all_skills": skill_proficiency,
+            "fit_score": structured_data.get("fit_score"),
+            "job_role": job_role if job_role else None,
+            "skill_gap": skill_gap if job_role else None,
+            "gap_analysis": gap_analysis,
+            "session_id": unique_id,
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR in /api/analyze: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
+
+@app.route("/api/generate", methods=["POST"])
+def generate_resume_step():
+    """Step 2: Generate PNG resume with user-selected skills.
+    Expects JSON body: { data: {...}, selected_skills: [{skill, percentage, category}...] }"""
+    try:
+        body = request.get_json(force=True)
+        if not body:
+            return jsonify({"error": "JSON body required"}), 400
+
+        structured_data = body.get("data") or {}
+        selected_skills = body.get("selected_skills") or []
+
+        if not structured_data:
+            return jsonify({"error": "No resume data provided"}), 400
+
+        # Override skill_proficiency with user-selected skills (max 7)
+        structured_data["skill_proficiency"] = selected_skills[:7]
+
+        # Gap analysis (minimal — data already processed)
+        gap_analyzer = GapAnalyzer()
+        education_raw = structured_data.get("education_raw") or []
+        experience_raw = structured_data.get("experience_raw") or []
+        gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
+
+        unique_id = str(uuid.uuid4())[:8]
+        png_filename = f"Resume_{structured_data.get('name', 'Candidate')}_{unique_id}.png"
+        png_path = generate_resume_image(
+            structured_data, gap_analysis, os.path.join(OUTPUT_FOLDER, png_filename)
+        )
+
+        with open(png_path, "rb") as f:
+            png_bytes = f.read()
+        image_base64 = base64.b64encode(png_bytes).decode("utf-8")
+
+        try:
+            os.remove(png_path)
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "image_base64": image_base64,
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR in /api/generate: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Image generation failed: {str(e)}"}), 500
+
+
 @app.route("/api/upload", methods=["POST"])
 def upload_resume():
     try:
         print("=" * 50)
         print("New upload request received")
-        
+
         if "resume" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
-        
+
         file = request.files["resume"]
-        
+
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
-        
+
         if not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type. Use PDF or DOCX"}), 400
-        
+
         unique_id = str(uuid.uuid4())[:8]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_filename = f"{timestamp}_{unique_id}_{secure_filename(file.filename or 'upload')}"
@@ -280,37 +455,37 @@ def upload_resume():
         job_role = request.form.get("job_role", "").strip()
         job_description = request.form.get("job_description", "").strip()
         print(f"Job Role: '{job_role}' | JD length: {len(job_description)}")
-        
+
         extracted_text = extract_resume_text(file_path)
         print(f"Extracted text length: {len(extracted_text)} chars")
-        
+
         # Extract profile image
         profile_image_base64 = None
         try:
             profile_bytes, profile_ext = extract_profile_image(file_path)
             if profile_bytes:
-                profile_image_base64 = base64.b64encode(profile_bytes).decode('utf-8')
+                profile_image_base64 = base64.b64encode(profile_bytes).decode("utf-8")
         except Exception as img_err:
             print(f"Error extracting profile photo: {img_err}")
-            
+
         # Check for worst resume BEFORE LLM call
         is_worst, unscore = is_worst_resume(extracted_text)
         print(f"Unprofessional score: {unscore}, Is worst: {is_worst}")
-        
+
         # Analyze with LLM
         structured_data = analyze_resume(extracted_text)
         if profile_image_base64:
-            structured_data['profile_image_base64'] = profile_image_base64
-        
+            structured_data["profile_image_base64"] = profile_image_base64
+
         # Initialize skill_gap — may be set later in the role branch
         skill_gap = None
-        
+
         # Force low scores for worst resumes
         if is_worst:
-            structured_data['fit_score'] = 15
-            structured_data['resume_quality_score'] = 15
-            structured_data['resume_quality_verdict'] = "Worst"
-            structured_data['red_flags'] = {
+            structured_data["fit_score"] = 15
+            structured_data["resume_quality_score"] = 15
+            structured_data["resume_quality_verdict"] = "Worst"
+            structured_data["red_flags"] = {
                 "poor_formatting": True,
                 "missing_contact_info": True,
                 "unprofessional_content": True,
@@ -323,24 +498,22 @@ def upload_resume():
                 "spelling_grammar_issues": True,
                 "incomplete_education": True,
                 "irrelevant_skills": True,
-                "desperate_tone": True
+                "desperate_tone": True,
             }
-            structured_data['quality_observations'] = [
+            structured_data["quality_observations"] = [
                 "⚠️ CRITICAL: Resume contains extremely unprofessional content",
                 "⚠️ No valid work experience with proper details",
                 "⚠️ Skills listed are completely irrelevant for professional work",
                 "⚠️ Contains desperate and unprofessional tone",
-                "⚠️ Complete resume rewrite is strongly recommended"
+                "⚠️ Complete resume rewrite is strongly recommended",
             ]
         else:
             # Calculate scores — role-based or generic
             if job_role:
-                # Build role requirements (merge JD extraction if provided)
                 role_requirements = get_role_requirements(job_role)
                 if job_description:
                     jd_data = extract_skills_from_jd(job_description)
                     if jd_data:
-                        # JD overrides / enriches the predefined template
                         for field in ["required_skills", "preferred_skills", "certifications", "keywords"]:
                             if jd_data.get(field):
                                 role_requirements[field] = list(set(
@@ -356,62 +529,70 @@ def upload_resume():
                 skill_gap = None
 
             quality_score = calculate_quality_score(structured_data, extracted_text)
-            
-            structured_data['fit_score'] = fit_score
-            structured_data['resume_quality_score'] = quality_score
-            structured_data['resume_quality_verdict'] = get_quality_verdict(quality_score)
-        
+
+            structured_data["fit_score"] = fit_score
+            structured_data["resume_quality_score"] = quality_score
+            structured_data["resume_quality_verdict"] = get_quality_verdict(quality_score)
+
         print(f"Final Fit Score: {structured_data.get('fit_score')}")
         print(f"Final Quality Score: {structured_data.get('resume_quality_score')}")
         print(f"Quality Verdict: {structured_data.get('resume_quality_verdict')}")
-        
+
         # Extract email and phone if missing
-        if structured_data.get('email') in [None, 'Not Provided', 'Not found', '']:
-            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', extracted_text)
+        if structured_data.get("email") in [None, "Not Provided", "Not found", ""]:
+            email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", extracted_text)
             if email_match:
-                structured_data['email'] = email_match.group()
-        
-        if structured_data.get('phone') in [None, 'Not Provided', 'Not found', '']:
-            phone_match = re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', extracted_text)
+                structured_data["email"] = email_match.group()
+
+        if structured_data.get("phone") in [None, "Not Provided", "Not found", ""]:
+            phone_match = re.search(r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", extracted_text)
             if phone_match:
-                structured_data['phone'] = phone_match.group()
-        
+                structured_data["phone"] = phone_match.group()
+
         # Gap Analysis
         gap_analyzer = GapAnalyzer()
-        education_raw = structured_data.get('education_raw', [])
-        experience_raw = structured_data.get('experience_raw', [])
+        education_raw = structured_data.get("education_raw", [])
+        experience_raw = structured_data.get("experience_raw", [])
         if education_raw is None:
             education_raw = []
         if experience_raw is None:
             experience_raw = []
         gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
-        
+
+        # For batch: auto-use top 7 skills
+        skill_proficiency = structured_data.get("skill_proficiency") or []
+        if not skill_proficiency:
+            flat = structured_data.get("skills") or []
+            skill_proficiency = [{"skill": s, "percentage": 80, "category": "Other"} for s in flat[:7]]
+        skill_proficiency.sort(key=lambda x: x.get("percentage", 0), reverse=True)
+        structured_data["skill_proficiency"] = skill_proficiency[:7]
+
         # Generate PNG image
         png_filename = f"Resume_{structured_data.get('name', 'Candidate')}_{unique_id}.png"
         png_path = generate_resume_image(structured_data, gap_analysis, os.path.join(OUTPUT_FOLDER, png_filename))
-        
-        with open(png_path, 'rb') as f:
+
+        with open(png_path, "rb") as f:
             png_bytes = f.read()
-        image_base64 = base64.b64encode(png_bytes).decode('utf-8')
-        
+        image_base64 = base64.b64encode(png_bytes).decode("utf-8")
+
         # Clean up
         try:
             os.remove(file_path)
             os.remove(png_path)
-        except:
+        except Exception:
             pass
-        
+
         return jsonify({
             "success": True,
             "message": "Resume processed successfully",
             "data": structured_data,
             "image_base64": image_base64,
-            "fit_score": structured_data.get('fit_score'),
+            "fit_score": structured_data.get("fit_score"),
             "job_role": job_role if job_role else None,
             "skill_gap": skill_gap if job_role else None,
-            "gap_analysis": gap_analysis
+            "gap_analysis": gap_analysis,
         }), 200
-        
+
     except Exception as e:
         print(f"ERROR: {str(e)}")
         print(traceback.format_exc())

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TalentLens — Enterprise AI resume intelligence. Extract, analyze, and score candidate profiles with LLM-powered parsing and professional reporting.">
+    <meta name="description"
+        content="TalentLens — Enterprise AI resume intelligence. Extract, analyze, and score candidate profiles with LLM-powered parsing and professional reporting.">
     <title>TalentLens | AI Resume Intelligence</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,13 +13,25 @@
     <!-- JSZip for batch download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
+
 <body>
     <div class="app-container">
-        <!-- Theme Toggle Button -->
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-            <i class="fas fa-moon"></i>
-            <span>Dark mode</span>
-        </button>
+        <!-- Theme Toggle Switch -->
+        <div class="theme-toggle-container" id="themeToggleContainer">
+            <label for="themeToggleCheckbox" class="toggle">
+                <input type="checkbox" class="input" id="themeToggleCheckbox" />
+                <div class="icon icon--moon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+                        <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="icon icon--sun">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+                        <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"></path>
+                    </svg>
+                </div>
+            </label>
+        </div>
 
         <!-- Main Content -->
         <div class="main-content">
@@ -32,9 +46,10 @@
                         <p>AI Resume Intelligence</p>
                     </div>
                 </div>
-                
+
                 <div class="title-container">
-                    <h2 class="main-title">Resume Intelligence<br>for <span class="gradient-text">Enterprise Teams</span></h2>
+                    <h2 class="main-title">Resume Intelligence<br>for <span class="gradient-text">Enterprise
+                            Teams</span></h2>
                 </div>
             </div>
 
@@ -44,7 +59,9 @@
                     <i class="fas fa-robot"></i>
                     <div class="description-text">
                         <h3>Next-Gen Resume Parsing Technology</h3>
-                        <p>Leverage advanced LLM-powered AI to extract, analyze, and visualize professional profiles instantly. Generate corporate-ready presentations with intelligent scoring and actionable insights.</p>
+                        <p>Leverage advanced LLM-powered AI to extract, analyze, and visualize professional profiles
+                            instantly. Generate corporate-ready presentations with intelligent scoring and actionable
+                            insights.</p>
                     </div>
                 </div>
             </div>
@@ -82,13 +99,8 @@
                         <!-- Custom Role Input (hidden by default) -->
                         <div class="custom-role-wrapper" id="customRoleWrapper" style="display:none;">
                             <label for="customRoleInput"><i class="fas fa-pen"></i> Custom Role Title</label>
-                            <input
-                                type="text"
-                                id="customRoleInput"
-                                class="custom-role-input"
-                                placeholder="e.g. GenAI Engineer, Blockchain Developer..."
-                                maxlength="80"
-                            />
+                            <input type="text" id="customRoleInput" class="custom-role-input"
+                                placeholder="e.g. GenAI Engineer, Blockchain Developer..." maxlength="80" />
                         </div>
 
                         <!-- Job Description (collapsible) -->
@@ -100,12 +112,9 @@
                             </button>
                         </div>
                         <div class="jd-textarea-wrapper" id="jdTextareaWrapper" style="display:none;">
-                            <textarea
-                                id="jobDescriptionText"
-                                class="jd-textarea"
+                            <textarea id="jobDescriptionText" class="jd-textarea"
                                 placeholder="Paste the full job description here. The AI will extract required skills and calibrate the fit score accordingly..."
-                                rows="6"
-                            ></textarea>
+                                rows="6"></textarea>
                             <span class="jd-char-count" id="jdCharCount">0 / 4000 characters</span>
                         </div>
                     </div>
@@ -132,10 +141,15 @@
                             <i class="fas fa-file-alt"></i>
                             <span>Supports PDF, DOCX (Max 10 files, 5MB each)</span>
                         </div>
-                        
+
                         <!-- File List for Batch Upload -->
                         <div class="file-list" id="fileList" style="display: none;">
-                            <h4>Selected Files:</h4>
+                            <div class="file-list-header">
+                                <h4>Selected Files:</h4>
+                                <button type="button" class="clear-uploads-btn" id="clearUploadsBtn" title="Clear selection">
+                                    <i class="fas fa-times-circle"></i> Clear Selection
+                                </button>
+                            </div>
                             <ul id="selectedFilesList"></ul>
                         </div>
 
@@ -158,7 +172,7 @@
                                 <span class="file-size" id="previewFileSize"></span>
                             </div>
                         </div>
-                        
+
                         <!-- Upload Buttons -->
                         <div class="upload-buttons">
                             <button class="upload-btn" id="uploadBtn">
@@ -170,7 +184,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="upload-benefits">
                         <div class="benefit-item">
                             <i class="fas fa-chart-line"></i>
@@ -195,7 +209,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Batch Progress Bar -->
                 <div class="batch-progress" id="batchProgress" style="display: none;">
                     <div class="batch-progress-header">
@@ -229,11 +243,43 @@
 
             <!-- Single Resume Results Section -->
             <div class="results-section" id="resultsSection" style="display: none;">
+                <!-- Sticky Actions Bar -->
+                <div class="results-action-bar">
+                    <div class="results-action-bar-left">
+                        <i class="fas fa-brain"></i>
+                        <span>Resume Intelligence Report</span>
+                    </div>
+                    <div class="results-action-bar-right">
+                        <!-- Download PNG Report Button -->
+                        <button class="download-ppt-btn" id="downloadBtn">
+                            <i class="fas fa-download"></i>
+                            <span>Download PNG Report</span>
+                        </button>
+                        
+                        <!-- Theme Toggle Switch -->
+                        <div class="results-theme-toggle-container">
+                            <label for="themeToggleResultsCheckbox" class="toggle">
+                                <input type="checkbox" class="input" id="themeToggleResultsCheckbox" />
+                                <div class="icon icon--moon">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+                                    <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clip-rule="evenodd"></path>
+                                  </svg>
+                                </div>
+                                <div class="icon icon--sun">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+                                    <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"></path>
+                                  </svg>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <!-- Close Button -->
+                        <button class="close-results" id="closeResults">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="results-container">
-                    <!-- Close Button -->
-                    <button class="close-results" id="closeResults">
-                        <i class="fas fa-times"></i>
-                    </button>
 
                     <!-- Left Column - Analysis Dashboard -->
                     <div class="analysis-column">
@@ -254,18 +300,21 @@
                                     <div class="tooltip-content">
                                         <h4><i class="fas fa-chart-line"></i> How Fit Score is Calculated</h4>
                                         <ul>
-                                            <li><strong>Skills Match (40%)</strong> - Relevant technical skills match</li>
+                                            <li><strong>Skills Match (40%)</strong> - Relevant technical skills match
+                                            </li>
                                             <li><strong>Experience (30%)</strong> - Years of relevant experience</li>
                                             <li><strong>Role Alignment (20%)</strong> - Seniority level match</li>
                                             <li><strong>Achievements (10%)</strong> - Quantifiable results</li>
                                         </ul>
-                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Not affected by email, phone, or formatting</p>
+                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Not affected by
+                                            email, phone, or formatting</p>
                                     </div>
                                 </div>
                             </div>
                             <div class="score-status" id="scoreStatus"></div>
                             <div class="score-details">
-                                <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths</p>
+                                <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths
+                                </p>
                                 <p><i class="fas fa-chart-line"></i> <span id="expYears">0</span>+ Years Experience</p>
                             </div>
                         </div>
@@ -280,13 +329,16 @@
                                     <div class="tooltip-content">
                                         <h4><i class="fas fa-shield-alt"></i> How Quality Score is Calculated</h4>
                                         <ul>
-                                            <li><strong>Professional Language</strong> - No desperate/unprofessional tone</li>
+                                            <li><strong>Professional Language</strong> - No desperate/unprofessional
+                                                tone</li>
                                             <li><strong>Complete Contact Info</strong> - Email and phone present</li>
-                                            <li><strong>Proper Dates</strong> - Years mentioned for experience/education</li>
+                                            <li><strong>Proper Dates</strong> - Years mentioned for experience/education
+                                            </li>
                                             <li><strong>Relevant Skills</strong> - Professional skills only</li>
                                             <li><strong>Work Experience</strong> - Valid experience documented</li>
                                         </ul>
-                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Does NOT affect job fit score</p>
+                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Does NOT affect job
+                                            fit score</p>
                                     </div>
                                 </div>
                             </div>
@@ -380,10 +432,6 @@
                     <div class="data-column">
                         <div class="action-header">
                             <h3><i class="fas fa-file-alt"></i> Parsed Resume Data</h3>
-                            <button class="download-ppt-btn" id="downloadBtn">
-                                <i class="fas fa-download"></i>
-                                <span>Download PNG Report</span>
-                            </button>
                         </div>
 
                         <!-- Candidate Info -->
@@ -395,7 +443,8 @@
                                 <h2 id="candidateName">John Doe</h2>
                                 <p id="candidateRole">Senior Professional</p>
                                 <div class="candidate-meta">
-                                    <span><i class="fas fa-map-marker-alt"></i> <span id="candidateLocation">Location</span></span>
+                                    <span><i class="fas fa-map-marker-alt"></i> <span
+                                            id="candidateLocation">Location</span></span>
                                     <span><i class="fas fa-envelope"></i> <span id="candidateEmail">Email</span></span>
                                     <span><i class="fas fa-phone"></i> <span id="candidatePhone">Phone</span></span>
                                 </div>
@@ -466,39 +515,39 @@
                             <i class="fas fa-chart-line"></i>
                             <h4>Career Gap Analysis</h4>
                         </div>
-                        
+
                         <div class="gap-status-row">
                             <span class="gap-label">Current Status:</span>
                             <span class="gap-value" id="gapCurrentStatus">--</span>
                         </div>
-                        
+
                         <div class="gap-row" id="eduGapRow" style="display: none;">
                             <div class="gap-label">Education Gap:</div>
                             <div class="gap-value" id="eduGapText"></div>
                         </div>
-                        
+
                         <div class="gap-row" id="empGapsRow" style="display: none;">
                             <div class="gap-label">Employment Gaps:</div>
                             <div class="gap-value" id="empGapsList"></div>
                         </div>
-                        
+
                         <div class="gap-row" id="careerBreaksRow" style="display: none;">
                             <div class="gap-label">Career Breaks:</div>
                             <div class="gap-value" id="careerBreaksList"></div>
                         </div>
-                        
+
                         <div class="gap-row" id="currentGapRow" style="display: none;">
                             <div class="gap-label">Current Gap:</div>
                             <div class="gap-value" id="currentGapText"></div>
                         </div>
-                        
+
                         <div class="gap-divider"></div>
-                        
+
                         <div class="gap-total-row">
                             <span class="gap-label">Total Career Gap:</span>
                             <span class="gap-value" id="totalGap">--</span>
                         </div>
-                        
+
                         <div class="gap-risk-row">
                             <span class="gap-label">Risk Indicator:</span>
                             <span class="gap-risk-value" id="riskIndicator">--</span>
@@ -521,7 +570,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="batch-summary">
                         <div class="summary-card">
                             <span>Total Processed</span>
@@ -540,7 +589,7 @@
                             <strong id="avgFitScore">0</strong>
                         </div>
                     </div>
-                    
+
                     <div class="batch-results-grid" id="batchResultsGrid"></div>
                 </div>
             </div>
@@ -572,6 +621,66 @@
         </div>
     </div>
 
+
+    <!-- ══════════════════════════════════════════════════
+         SKILL CUSTOMIZATION MODAL
+         Shown after /api/analyze, before /api/generate
+    ══════════════════════════════════════════════════ -->
+    <div class="skill-modal-overlay" id="skillModal" style="display:none;" role="dialog" aria-modal="true"
+        aria-labelledby="skillModalTitle">
+        <div class="skill-modal-card">
+            <!-- Header -->
+            <div class="skill-modal-header">
+                <div class="skill-modal-title-row">
+                    <div class="skill-modal-icon"><i class="fas fa-sliders-h"></i></div>
+                    <div>
+                        <h2 id="skillModalTitle">Customize Your Resume Skills</h2>
+                        <p>Select exactly <strong>7 skills</strong> to highlight on your professional resume</p>
+                    </div>
+                </div>
+                <div class="skill-counter" id="skillCounter">
+                    <span id="skillCountNum">7</span><span>/7 selected</span>
+                </div>
+            </div>
+
+            <!-- AI Recommendation banner -->
+            <div class="skill-ai-banner">
+                <i class="fas fa-robot"></i>
+                <span>AI has pre-selected the top 7 skills based on your resume context. You can swap any of them
+                    below.</span>
+            </div>
+
+            <!-- Search -->
+            <div class="skill-search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="skillSearchInput" class="skill-search-input" placeholder="Search skills…"
+                    autocomplete="off">
+            </div>
+
+            <!-- Selected skills row -->
+            <div class="skill-section-label"><i class="fas fa-check-circle"></i> Selected Skills</div>
+            <div class="skill-chips-grid" id="selectedSkillsGrid"><!-- JS fills --></div>
+
+            <!-- Divider -->
+            <div class="skill-divider"></div>
+
+            <!-- All available skills -->
+            <div class="skill-section-label"><i class="fas fa-th"></i> All Extracted Skills</div>
+            <div class="skill-chips-grid" id="allSkillsGrid"><!-- JS fills --></div>
+
+            <!-- Footer actions -->
+            <div class="skill-modal-footer">
+                <button class="skill-btn-skip" id="skillSkipBtn">
+                    <i class="fas fa-forward"></i> Skip — use AI selection
+                </button>
+                <button class="skill-btn-generate" id="skillGenerateBtn" disabled>
+                    <i class="fas fa-magic"></i> Generate Resume
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
+
 </html>

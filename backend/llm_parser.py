@@ -176,14 +176,22 @@ Extract the following information carefully:
     "location": "City, State",
     "email": "email address",
     "phone": "phone number",
-    "linkedin": "LinkedIn URL",
+    "linkedin": "LinkedIn URL or empty string",
     "professional_summary": "2-3 sentence summary",
     "skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5"],
+    "skill_proficiency": [
+        {{
+            "skill": "Skill name",
+            "percentage": 90,
+            "category": "Programming Languages"
+        }}
+    ],
     "certifications": [],
     "education": {{
         "degree": "Degree name",
         "institution": "University name",
-        "year": "Graduation year"
+        "year": "Graduation year",
+        "cgpa": "CGPA or percentage if available, else empty string"
     }},
     "latest_3_experiences": [
         {{
@@ -198,7 +206,10 @@ Extract the following information carefully:
             "name": "Project Name",
             "description": "Brief description (1-2 lines)",
             "technologies": ["Tech1", "Tech2"],
-            "duration": "Duration/Date (if available, e.g. Jan 2023 - Mar 2023, or 3 months)"
+            "duration": "Duration/Date (if available, e.g. Jan 2023 - Mar 2023, or 3 months)",
+            "github_url": "GitHub URL if available else empty string",
+            "demo_url": "Demo URL if available else empty string",
+            "contributions": ["Key contribution 1", "Key contribution 2"]
         }}
     ],
     "fit_score": 75,
@@ -218,6 +229,8 @@ Extract the following information carefully:
     "experience_raw": ["Full experience text"]
 }}
 
+For skill_proficiency: estimate a percentage (50-99) for each skill based on how prominently and frequently it appears in the resume. Group each skill into one of: "Programming Languages", "Cloud Technologies", "Databases", "AI/ML & GenAI", "DevOps Tools", "Frameworks", or "Other". Include 8-16 skills max.
+
 Resume Text:
 {resume_text[:PROMPT_CHARS]}
 
@@ -229,7 +242,8 @@ Return ONLY the JSON object."""
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=2000,
+            max_tokens=3000,
+
         )
 
         raw = response.choices[0].message.content.strip()

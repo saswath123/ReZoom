@@ -5,7 +5,8 @@ const uploadBtn = document.getElementById('uploadBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const resultsSection = document.getElementById('resultsSection');
 const closeResults = document.getElementById('closeResults');
-const themeToggle = document.getElementById('themeToggle');
+const themeToggle = document.getElementById('themeToggleCheckbox');
+const themeToggleResults = document.getElementById('themeToggleResultsCheckbox');
 const downloadBtn = document.getElementById('downloadBtn');
 
 // State variables
@@ -27,16 +28,12 @@ function initTheme() {
 }
 
 function updateThemeButton(theme) {
-    const icon = themeToggle.querySelector('i');
-    const text = themeToggle.querySelector('span');
-    
-    if (theme === 'dark') {
-        icon.className = 'fas fa-sun';
-        text.textContent = 'Light mode';
-    } else {
-        icon.className = 'fas fa-moon';
-        text.textContent = 'Dark mode';
-    }
+    const isDark = theme === 'dark';
+    [themeToggle, themeToggleResults].forEach(checkbox => {
+        if (checkbox) {
+            checkbox.checked = isDark;
+        }
+    });
 }
 
 function toggleTheme() {
@@ -100,16 +97,30 @@ function setupFileSelection() {
             }
         } else {
             fileListDiv.style.display = 'none';
+            selectedFilesList.innerHTML = '';
             previewBtn.style.display = 'none';
             closeFilePreview();
         }
     });
+
+    const clearUploadsBtn = document.getElementById('clearUploadsBtn');
+    if (clearUploadsBtn) {
+        clearUploadsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.value = '';
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+        });
+    }
 }
 
 // Upload Area Interactions
 function setupUploadArea() {
     uploadArea.addEventListener('click', (e) => {
-        if (e.target.closest('#previewFileBtn') || e.target.closest('#uploadBtn')) {
+        if (e.target.closest('#previewFileBtn') || 
+            e.target.closest('#uploadBtn') || 
+            e.target.closest('#fileList') || 
+            e.target.closest('#filePreviewContainer')) {
             return;
         }
         fileInput.click();
@@ -193,97 +204,95 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Single Resume Upload
+// ─────────────────────────────────────────────────────────────
+// Skill Customization Modal State
+// ─────────────────────────────────────────────────────────────
+let _skillModalData     = null;   // structured data from /api/analyze
+let _skillModalAnalysis = null;   // gap_analysis from /api/analyze
+let _skillModalResponse = null;   // full analyze response
+let _selectedSkills     = [];     // currently selected skill objects
+let _allSkills          = [];     // all skill objects from API
+
+function getApiUrl() {
+    const isProduction = window.location.hostname &&
+                         !window.location.hostname.includes('localhost') &&
+                         !window.location.hostname.includes('127.0.0.1') &&
+                         !window.location.hostname.startsWith('192.168.') &&
+                         window.location.protocol !== 'file:';
+    return isProduction
+        ? '/api'
+        : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
+}
+
+// Single Resume Upload — step 1: analyze only
 async function uploadResume() {
     if (!fileInput.files[0]) {
         showNotification('Please select a file first!', 'warning');
         return;
     }
-    
+
     const file = fileInput.files[0];
-    
-    const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    
+    const validTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
     if (!validTypes.includes(file.type)) {
         showNotification('Please upload PDF or DOCX file only!', 'error');
         return;
     }
-    
+
     if (file.size > 5 * 1024 * 1024) {
         showNotification('File size must be less than 5MB!', 'error');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('resume', file);
-    
-    // Attach role data if selected
+
     const activeRole = getActiveJobRole();
-    const activeJD = document.getElementById('jobDescriptionText')?.value?.trim() || '';
+    const activeJD   = document.getElementById('jobDescriptionText')?.value?.trim() || '';
     if (activeRole) {
         formData.append('job_role', activeRole);
         if (activeJD) formData.append('job_description', activeJD);
     }
-    
-    loadingOverlay.style.display = 'flex';
-    // Update loading text with role
-    const loadingP = loadingOverlay.querySelector('.loading-text p');
-    if (loadingP && activeRole) {
-        loadingP.textContent = `Analyzing resume against "${activeRole}" role requirements...`;
-    } else if (loadingP) {
-        loadingP.textContent = 'Extracting skills, experiences, and generating insights...';
-    }
-    
-    try {
-        const isProduction = window.location.hostname && 
-                             !window.location.hostname.includes('localhost') && 
-                             !window.location.hostname.includes('127.0.0.1') && 
-                             !window.location.hostname.startsWith('192.168.') && 
-                             window.location.protocol !== 'file:';
-        const API_URL = isProduction 
-            ? '/api' 
-            : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
 
-const response = await fetch(`${API_URL}/upload`, {
+    loadingOverlay.style.display = 'flex';
+    const loadingP = loadingOverlay.querySelector('.loading-text p');
+    if (loadingP) {
+        loadingP.textContent = activeRole
+            ? `Analyzing resume against "${activeRole}" role requirements…`
+            : 'Extracting skills, experiences, and generating insights…';
+    }
+
+    try {
+        const API_URL = getApiUrl();
+        const response = await fetch(`${API_URL}/analyze`, {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
-        
+        loadingOverlay.style.display = 'none';
+
         if (data.success) {
+            // Store response for later use in /api/generate
+            _skillModalResponse = data;
+            _skillModalData     = data.data;
+            _skillModalAnalysis = data.gap_analysis;
+
+            // Immediately display the analyzed details on the dashboard
             currentData = data.data;
-            
-            let imageUrl;
-            let imageBlob;
-            
-            if (data.image_base64) {
-                const byteCharacters = atob(data.image_base64);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                imageBlob = new Blob([byteArray], { type: 'image/png' });
-                imageUrl = URL.createObjectURL(imageBlob);
-                currentImageBlob = imageBlob;
-            } else if (data.image_download_url) {
-                imageUrl = `${API_URL}${data.image_download_url}`;
-                const imgResponse = await fetch(imageUrl);
-                imageBlob = await imgResponse.blob();
-                currentImageBlob = imageBlob;
-            }
-            
-            currentImageUrl = imageUrl;
-            currentPreviewImageUrl = imageUrl;
-            
+            currentImageUrl = null;
+            currentImageBlob = null;
+            currentPreviewImageUrl = null;
+
             displayResults(data);
-            
-            loadingOverlay.style.display = 'none';
             resultsSection.style.display = 'block';
+            document.body.classList.add('results-open');
             document.body.style.overflow = 'hidden';
         } else {
-            throw new Error(data.error || 'Failed to process resume');
+            throw new Error(data.error || 'Failed to analyze resume');
         }
     } catch (error) {
         loadingOverlay.style.display = 'none';
@@ -291,6 +300,178 @@ const response = await fetch(`${API_URL}/upload`, {
         console.error('Upload error:', error);
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Skill Modal
+// ─────────────────────────────────────────────────────────────
+function openSkillModal(recommended, all) {
+    _selectedSkills = recommended.slice(0, 7);
+    _allSkills      = all.length > 0 ? all : recommended;
+
+    renderSkillModal();
+    document.getElementById('skillModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSkillModal() {
+    document.getElementById('skillModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function renderSkillModal(filter = '') {
+    const selectedGrid = document.getElementById('selectedSkillsGrid');
+    const allGrid      = document.getElementById('allSkillsGrid');
+    const counter      = document.getElementById('skillCountNum');
+    const counterWrap  = document.getElementById('skillCounter');
+    const generateBtn  = document.getElementById('skillGenerateBtn');
+
+    const count = _selectedSkills.length;
+    counter.textContent = count;
+    counterWrap.classList.toggle('over', count > 7);
+    generateBtn.disabled = count !== 7;
+
+    // Selected chips
+    selectedGrid.innerHTML = '';
+    _selectedSkills.forEach(sp => {
+        const chip = _makeChip(sp, true, recommended = _allSkills.slice(0, 7).some(r => r.skill === sp.skill));
+        chip.addEventListener('click', () => {
+            _selectedSkills = _selectedSkills.filter(s => s.skill !== sp.skill);
+            renderSkillModal(document.getElementById('skillSearchInput').value);
+        });
+        selectedGrid.appendChild(chip);
+    });
+    if (_selectedSkills.length === 0) {
+        selectedGrid.innerHTML = '<span style="color:var(--text-muted);font-size:13px;padding:4px 0;">No skills selected yet</span>';
+    }
+
+    // All skills grid (filtered + not already selected)
+    allGrid.innerHTML = '';
+    const lf = filter.toLowerCase();
+    _allSkills.forEach(sp => {
+        if (lf && !sp.skill.toLowerCase().includes(lf)) return;
+        const isSelected = _selectedSkills.some(s => s.skill === sp.skill);
+        if (isSelected) return; // already shown above
+        const isAI = _allSkills.indexOf(sp) < 7;
+        const chip = _makeChip(sp, false, isAI);
+        chip.addEventListener('click', () => {
+            if (_selectedSkills.length >= 7) {
+                showNotification('Maximum 7 skills allowed. Remove one first.', 'warning');
+                return;
+            }
+            _selectedSkills.push(sp);
+            renderSkillModal(document.getElementById('skillSearchInput').value);
+        });
+        allGrid.appendChild(chip);
+    });
+    if (allGrid.children.length === 0) {
+        allGrid.innerHTML = '<span style="color:var(--text-muted);font-size:13px;padding:4px 0;">No matching skills found</span>';
+    }
+}
+
+function _makeChip(sp, selected, isAI) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `skill-chip${selected ? ' selected' : ''}${isAI ? ' ai-pick' : ''}`;
+
+    let inner = '';
+    if (isAI && !selected) inner += '<span class="ai-badge">AI</span>';
+    inner += escapeHtml(sp.skill);
+    if (sp.percentage) inner += ` <span class="chip-pct">${sp.percentage}%</span>`;
+    chip.innerHTML = inner;
+    return chip;
+}
+
+function setupSkillModal() {
+    // Search input
+    const searchInput = document.getElementById('skillSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => renderSkillModal(searchInput.value));
+    }
+
+    // Skip button — use AI selection as-is
+    const skipBtn = document.getElementById('skillSkipBtn');
+    if (skipBtn) {
+        skipBtn.addEventListener('click', () => {
+            // Already have _selectedSkills (AI picks); proceed
+            triggerGenerateResume();
+        });
+    }
+
+    // Generate button
+    const generateBtn = document.getElementById('skillGenerateBtn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', () => {
+            if (_selectedSkills.length !== 7) {
+                showNotification('Please select exactly 7 skills', 'warning');
+                return;
+            }
+            triggerGenerateResume();
+        });
+    }
+
+    // Close on overlay click
+    const overlay = document.getElementById('skillModal');
+    if (overlay) {
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) closeSkillModal();
+        });
+    }
+}
+
+// Step 2: Call /api/generate with selected skills
+async function triggerGenerateResume() {
+    // Show loading state inside modal
+    const card = document.querySelector('.skill-modal-card');
+    if (card) {
+        card.innerHTML = `
+            <div class="skill-generating">
+                <i class="fas fa-cog"></i>
+                <p>Generating your professional resume…</p>
+            </div>`;
+    }
+
+    try {
+        const API_URL = getApiUrl();
+        const response = await fetch(`${API_URL}/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: _skillModalData,
+                selected_skills: _selectedSkills
+            })
+        });
+
+        const genData = await response.json();
+        closeSkillModal();
+
+        if (genData.success && genData.image_base64) {
+            const byteCharacters = atob(genData.image_base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray  = new Uint8Array(byteNumbers);
+            const imageBlob  = new Blob([byteArray], { type: 'image/png' });
+            const imageUrl   = URL.createObjectURL(imageBlob);
+
+            currentData             = _skillModalData;
+            currentImageUrl         = imageUrl;
+            currentImageBlob        = imageBlob;
+            currentPreviewImageUrl  = imageUrl;
+
+            // Open the generated resume image in the preview modal
+            showPreview(imageUrl, imageBlob);
+        } else {
+            throw new Error(genData.error || 'Image generation failed');
+        }
+    } catch (error) {
+        closeSkillModal();
+        loadingOverlay.style.display = 'none';
+        showNotification(error.message || 'Error generating resume.', 'error');
+        console.error('Generate error:', error);
+    }
+}
+
 
 // Batch Upload Resumes
 async function batchUploadResumes() {
@@ -1076,27 +1257,16 @@ function downloadFromPreview() {
 }
 
 function downloadImage() {
-    if (currentImageUrl) {
-        if (currentImageBlob) {
-            showPreview(currentImageUrl, currentImageBlob);
-        } else {
-            fetch(currentImageUrl)
-                .then(res => res.blob())
-                .then(blob => {
-                    currentImageBlob = blob;
-                    showPreview(currentImageUrl, blob);
-                })
-                .catch(err => {
-                    showNotification('Error loading preview', 'error');
-                });
-        }
+    if (_skillModalResponse) {
+        openSkillModal(_skillModalResponse.recommended_skills || [], _skillModalResponse.all_skills || []);
     } else {
-        showNotification('No image available to download', 'error');
+        showNotification('No analyzed resume data available', 'error');
     }
 }
 
 function closeResultsHandler() {
     resultsSection.style.display = 'none';
+    document.body.classList.remove('results-open');
     document.body.style.overflow = 'auto';
     currentData = null;
     currentImageUrl = null;
@@ -1153,7 +1323,10 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Event Listeners
-themeToggle.addEventListener('click', toggleTheme);
+themeToggle.addEventListener('change', toggleTheme);
+if (themeToggleResults) {
+    themeToggleResults.addEventListener('change', toggleTheme);
+}
 downloadBtn.addEventListener('click', downloadImage);
 closeResults.addEventListener('click', closeResultsHandler);
 
@@ -1316,6 +1489,7 @@ setupUploadArea();
 setupPreviewModal();
 setupRoleSelector();
 setupTooltips();
+setupSkillModal();
 
 // Store batch results globally
-let batchResults = [];
+let batchResults = [];
