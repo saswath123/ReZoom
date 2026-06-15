@@ -250,6 +250,12 @@
                         <span>Resume Intelligence Report</span>
                     </div>
                     <div class="results-action-bar-right">
+                        <!-- Preview Input Resume Button -->
+                        <button class="preview-input-resume-btn" id="previewInputResumeBtn">
+                            <i class="fas fa-eye"></i>
+                            <span>Preview Input Resume</span>
+                        </button>
+
                         <!-- Preview & Download Resume Button -->
                         <button class="download-ppt-btn" id="downloadBtn">
                             <i class="fas fa-file-alt"></i>
@@ -624,6 +630,28 @@
         </div>
     </div>
 
+    <!-- Preview Modal for Original Uploaded Resume -->
+    <div class="preview-modal" id="originalResumePreviewModal" style="display: none;">
+        <div class="preview-modal-content">
+            <div class="preview-modal-header">
+                <h3><i class="fas fa-file-alt"></i> Original Resume Preview</h3>
+                <button class="preview-close" id="originalResumePreviewCloseBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="preview-modal-body" style="padding: 20px;">
+                <div id="originalResumePreviewContent" style="min-height: 400px; max-height: 70vh; overflow-y: auto;">
+                    <!-- Preview content loaded dynamically -->
+                </div>
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn-secondary" id="originalResumePreviewCancelBtn">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- ══════════════════════════════════════════════════
          SKILL CUSTOMIZATION MODAL
@@ -646,50 +674,77 @@
                         <p>Select exactly <strong>7 skills</strong> to highlight on your professional resume</p>
                     </div>
                 </div>
-                <div class="skill-counter" id="skillCounter">
-                    <span id="skillCountNum">7</span><span>/7 selected</span>
+            </div>
+
+            <!-- Scrollable Content Body -->
+            <div class="skill-modal-body">
+                <!-- AI Recommendation banner -->
+                <div class="skill-ai-banner">
+                    <i class="fas fa-robot"></i>
+                    <span>AI has pre-selected the top 7 skills based on your resume context. You can swap any of them
+                        below.</span>
                 </div>
-            </div>
 
-            <!-- AI Recommendation banner -->
-            <div class="skill-ai-banner">
-                <i class="fas fa-robot"></i>
-                <span>AI has pre-selected the top 7 skills based on your resume context. You can swap any of them
-                    below.</span>
-            </div>
+                <!-- Search -->
+                <div class="skill-search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="skillSearchInput" class="skill-search-input" placeholder="Search skills…"
+                        autocomplete="off">
+                </div>
 
-            <!-- Search -->
-            <div class="skill-search-wrapper">
-                <i class="fas fa-search"></i>
-                <input type="text" id="skillSearchInput" class="skill-search-input" placeholder="Search skills…"
-                    autocomplete="off">
-            </div>
+                <!-- Selected skills row -->
+                <div class="skill-section-label" id="selectedSkillsLabel">
+                    <i class="fas fa-check-circle"></i> Selected Skills 
+                    <span class="skill-counter-inline" id="skillCounter">
+                        (<span id="skillCountNum">7</span>/7 selected)
+                    </span>
+                </div>
+                <div class="skill-chips-grid" id="selectedSkillsGrid"><!-- JS fills --></div>
 
-            <!-- Selected skills row -->
-            <div class="skill-section-label"><i class="fas fa-check-circle"></i> Selected Skills</div>
-            <div class="skill-chips-grid" id="selectedSkillsGrid"><!-- JS fills --></div>
+                <!-- Divider -->
+                <div class="skill-divider"></div>
 
-            <!-- Divider -->
-            <div class="skill-divider"></div>
+                <!-- All available skills -->
+                <div class="skill-section-label"><i class="fas fa-th"></i> All Extracted Skills</div>
+                <div class="skill-chips-grid" id="allSkillsGrid"><!-- JS fills --></div>
 
-            <!-- All available skills -->
-            <div class="skill-section-label"><i class="fas fa-th"></i> All Extracted Skills</div>
-            <div class="skill-chips-grid" id="allSkillsGrid"><!-- JS fills --></div>
+                <!-- Fit Score Toggle Checkbox -->
+                <div class="fit-score-toggle-wrapper">
+                    <div class="checkbox-wrapper-31">
+                        <input type="checkbox" id="includeFitScoreCheckbox" />
+                        <svg viewBox="0 0 35.6 35.6">
+                            <circle class="background" cx="17.8" cy="17.8" r="17.8"></circle>
+                            <circle class="stroke" cx="17.8" cy="17.8" r="14.37"></circle>
+                            <polyline class="check" points="11.78 18.12 15.55 22.23 25.17 12.87"></polyline>
+                        </svg>
+                    </div>
+                    <label class="fit-score-toggle-label" for="includeFitScoreCheckbox">
+                        <span>Include Fit Score in exported resume</span>
+                    </label>
+                </div>
 
-            <!-- Fit Score Toggle Checkbox -->
-            <div class="fit-score-toggle-wrapper">
-                <label class="fit-score-toggle-label" for="includeFitScoreCheckbox">
-                    <input type="checkbox" id="includeFitScoreCheckbox" />
-                    <span>Include Fit Score in exported resume</span>
-                </label>
-            </div>
+                <!-- Best Suited Role Toggle Checkbox -->
+                <div class="fit-score-toggle-wrapper">
+                    <div class="checkbox-wrapper-31">
+                        <input type="checkbox" id="includeBestSuitedRoleCheckbox" />
+                        <svg viewBox="0 0 35.6 35.6">
+                            <circle class="background" cx="17.8" cy="17.8" r="17.8"></circle>
+                            <circle class="stroke" cx="17.8" cy="17.8" r="14.37"></circle>
+                            <polyline class="check" points="11.78 18.12 15.55 22.23 25.17 12.87"></polyline>
+                        </svg>
+                    </div>
+                    <label class="fit-score-toggle-label" for="includeBestSuitedRoleCheckbox">
+                        <span>Include Best Suited Role in exported resume</span>
+                    </label>
+                </div>
 
-            <!-- Best Suited Role Toggle Checkbox -->
-            <div class="fit-score-toggle-wrapper">
-                <label class="fit-score-toggle-label" for="includeBestSuitedRoleCheckbox">
-                    <input type="checkbox" id="includeBestSuitedRoleCheckbox" />
-                    <span>Include Best Suited Role in exported resume</span>
-                </label>
+                <!-- Custom Role Input Box (Conditional) -->
+                <div class="custom-modal-role-wrapper" id="customModalRoleWrapper">
+                    <label for="customModalRoleInput">
+                        Specify custom role to show (optional):
+                    </label>
+                    <input type="text" id="customModalRoleInput" placeholder="e.g. Senior Software Engineer" />
+                </div>
             </div>
 
             <!-- Footer actions -->

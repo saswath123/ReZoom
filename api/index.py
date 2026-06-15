@@ -1,5 +1,7 @@
 import sys
 import os
+import hashlib
+import time
 
 # Add backend directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -23,6 +25,33 @@ from role_matcher import (
     calculate_role_fit_score,
     build_skill_gap_report
 )
+
+# Cache to prevent duplicate submissions
+RECENT_UPLOADS = {}  # file_hash -> timestamp
+
+def is_duplicate_upload(file_storage):
+    """Check if the file has been processed recently (within 15s) using MD5 hash"""
+    try:
+        # Read the file bytes, generate hash
+        file_bytes = file_storage.read()
+        file_storage.seek(0)  # Reset stream position so it can be saved later
+        
+        file_hash = hashlib.md5(file_bytes).hexdigest()
+        now = time.time()
+        
+        # Clean up old hashes (older than 15 seconds)
+        expired = [h for h, t in RECENT_UPLOADS.items() if now - t > 15]
+        for h in expired:
+            RECENT_UPLOADS.pop(h, None)
+            
+        if file_hash in RECENT_UPLOADS:
+            return True
+            
+        RECENT_UPLOADS[file_hash] = now
+        return False
+    except Exception as e:
+        print(f"Error checking duplicate: {e}")
+        return False
 
 # Aggressive scoring for unprofessional resumes
 UNPROFESSIONAL_KEYWORDS = {
@@ -319,6 +348,9 @@ def analyze_resume_step():
         if not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type. Use PDF or DOCX"}), 400
 
+        if is_duplicate_upload(file):
+            return jsonify({"error": "Duplicate upload request detected. This file is already being processed."}), 429
+
         unique_id = str(uuid.uuid4())[:8]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_filename = f"{timestamp}_{unique_id}_{secure_filename(file.filename or 'upload')}"
@@ -459,6 +491,8 @@ def generate_resume_step():
         structured_data["include_best_suited_role"] = body.get("include_best_suited_role", False)
         if body.get("job_role"):
             structured_data["job_role"] = body.get("job_role")
+        if body.get("custom_role"):
+            structured_data["custom_role"] = body.get("custom_role")
 
         # Gap analysis (minimal — data already processed)
         gap_analyzer = GapAnalyzer()
@@ -508,6 +542,9 @@ def upload_resume():
 
         if not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type. Use PDF or DOCX"}), 400
+
+        if is_duplicate_upload(file):
+            return jsonify({"error": "Duplicate upload request detected. This file is already being processed."}), 429
 
         unique_id = str(uuid.uuid4())[:8]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -18,6 +18,7 @@ let currentData = null;
 let currentPreviewImageUrl = null;
 let currentImageBlob = null;
 let currentPreviewFile = null;
+let isProcessing = false;
 
 // Role selection state
 let selectedJobRole = null;
@@ -110,6 +111,7 @@ function setupFileSelection() {
     if (clearUploadsBtn) {
         clearUploadsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (isProcessing) return;
             fileInput.value = '';
             const event = new Event('change');
             fileInput.dispatchEvent(event);
@@ -120,6 +122,7 @@ function setupFileSelection() {
 // Upload Area Interactions
 function setupUploadArea() {
     uploadArea.addEventListener('click', (e) => {
+        if (isProcessing) return;
         if (e.target.closest('#previewFileBtn') || 
             e.target.closest('#uploadBtn') || 
             e.target.closest('#fileList') || 
@@ -131,16 +134,19 @@ function setupUploadArea() {
     
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
+        if (isProcessing) return;
         uploadArea.classList.add('drag-over');
     });
     
     uploadArea.addEventListener('dragleave', () => {
+        if (isProcessing) return;
         uploadArea.classList.remove('drag-over');
     });
     
     uploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadArea.classList.remove('drag-over');
+        if (isProcessing) return;
         
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -152,6 +158,7 @@ function setupUploadArea() {
     
     uploadBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (isProcessing) return;
         const files = fileInput.files;
         
         if (files.length === 0) {
@@ -227,6 +234,49 @@ function getApiUrl() {
         : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
 }
 
+// Lock UI to prevent multiple submissions
+function lockUploadUI() {
+    isProcessing = true;
+    const btn = document.getElementById('uploadBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+    }
+    const area = document.getElementById('uploadArea');
+    if (area) {
+        area.style.opacity = '0.7';
+        area.style.cursor = 'not-allowed';
+    }
+    const clearBtn = document.getElementById('clearUploadsBtn');
+    if (clearBtn) {
+        clearBtn.disabled = true;
+        clearBtn.style.opacity = '0.5';
+        clearBtn.style.cursor = 'not-allowed';
+    }
+}
+
+function unlockUploadUI() {
+    isProcessing = false;
+    const btn = document.getElementById('uploadBtn');
+    if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+    const area = document.getElementById('uploadArea');
+    if (area) {
+        area.style.opacity = '1';
+        area.style.cursor = 'pointer';
+    }
+    const clearBtn = document.getElementById('clearUploadsBtn');
+    if (clearBtn) {
+        clearBtn.disabled = false;
+        clearBtn.style.opacity = '1';
+        clearBtn.style.cursor = 'pointer';
+    }
+}
+
 // Single Resume Upload — step 1: analyze only
 async function uploadResume() {
     currentImageUrl = null;
@@ -254,6 +304,9 @@ async function uploadResume() {
         return;
     }
 
+    // LOCK UI immediately
+    lockUploadUI();
+
     const formData = new FormData();
     formData.append('resume', file);
 
@@ -265,12 +318,34 @@ async function uploadResume() {
     }
 
     loadingOverlay.style.display = 'flex';
+    const loadingH3 = loadingOverlay.querySelector('.loading-text h3');
     const loadingP = loadingOverlay.querySelector('.loading-text p');
-    if (loadingP) {
-        loadingP.textContent = activeRole
-            ? `Analyzing resume against "${activeRole}" role requirements…`
-            : 'Extracting skills, experiences, and generating insights…';
-    }
+    const progressFill = loadingOverlay.querySelector('.progress-fill');
+    const progressText = loadingOverlay.querySelector('.progress-text');
+    
+    if (loadingH3) loadingH3.textContent = "Analyzing Resume Intelligence";
+    
+    // Cycle through stages smoothly
+    let currentStage = 0;
+    const stages = [
+        { text: "Uploading resume...", pct: 15 },
+        { text: "Extracting content...", pct: 40 },
+        { text: "Analyzing resume...", pct: 70 },
+        { text: "Generating results...", pct: 90 }
+    ];
+    
+    const updateStage = () => {
+        if (currentStage < stages.length) {
+            const stage = stages[currentStage];
+            if (loadingP) loadingP.textContent = stage.text;
+            if (progressFill) progressFill.style.width = `${stage.pct}%`;
+            if (progressText) progressText.textContent = `${stage.pct}%`;
+            currentStage++;
+        }
+    };
+    
+    updateStage();
+    const stageInterval = setInterval(updateStage, 1000);
 
     try {
         const API_URL = getApiUrl();
@@ -279,7 +354,20 @@ async function uploadResume() {
             body: formData
         });
 
+        // Check for double submission / duplicate rejection
+        if (response.status === 429) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Duplicate request detected.');
+        }
+
         const data = await response.json();
+        
+        clearInterval(stageInterval);
+        if (progressFill) progressFill.style.width = '100%';
+        if (progressText) progressText.textContent = '100%';
+        
+        // Brief delay before closing the overlay
+        await new Promise(r => setTimeout(r, 400));
         loadingOverlay.style.display = 'none';
 
         if (data.success) {
@@ -297,6 +385,10 @@ async function uploadResume() {
             const includeBestSuitedRoleCheckbox = document.getElementById('includeBestSuitedRoleCheckbox');
             if (includeBestSuitedRoleCheckbox) {
                 includeBestSuitedRoleCheckbox.checked = false;
+                const wrapper = document.getElementById('customModalRoleWrapper');
+                if (wrapper) wrapper.style.display = 'none';
+                const input = document.getElementById('customModalRoleInput');
+                if (input) input.value = '';
             }
 
             // Immediately display the analyzed details on the dashboard
@@ -313,9 +405,12 @@ async function uploadResume() {
             throw new Error(data.error || 'Failed to analyze resume');
         }
     } catch (error) {
+        clearInterval(stageInterval);
         loadingOverlay.style.display = 'none';
         showNotification(error.message || 'Error processing resume. Please try again.', 'error');
         console.error('Upload error:', error);
+    } finally {
+        unlockUploadUI();
     }
 }
 
@@ -449,6 +544,7 @@ async function triggerGenerateResume() {
     try {
         const includeFitScore = document.getElementById('includeFitScoreCheckbox')?.checked || false;
         const includeBestSuitedRole = document.getElementById('includeBestSuitedRoleCheckbox')?.checked || false;
+        const customRole = document.getElementById('customModalRoleInput')?.value?.trim() || '';
         const API_URL = getApiUrl();
         const response = await fetch(`${API_URL}/generate`, {
             method: 'POST',
@@ -458,7 +554,8 @@ async function triggerGenerateResume() {
                 selected_skills: _selectedSkills,
                 include_fit_score: includeFitScore,
                 include_best_suited_role: includeBestSuitedRole,
-                job_role: selectedJobRole
+                job_role: selectedJobRole,
+                custom_role: customRole
             })
         });
 
@@ -526,76 +623,125 @@ async function batchUploadResumes() {
         return;
     }
     
-    const batchProgress = document.getElementById('batchProgress');
-    const progressCount = document.getElementById('progressCount');
-    const progressFill = document.getElementById('batchProgressFill');
+    // LOCK UI immediately and REDIRECT to loading overlay page
+    lockUploadUI();
+    loadingOverlay.style.display = 'flex';
     
-    batchProgress.style.display = 'block';
-    progressCount.textContent = `0 / ${files.length}`;
-    progressFill.style.width = '0%';
+    const loadingH3 = loadingOverlay.querySelector('.loading-text h3');
+    const loadingP = loadingOverlay.querySelector('.loading-text p');
+    const progressFill = loadingOverlay.querySelector('.progress-fill');
+    const progressText = loadingOverlay.querySelector('.progress-text');
+    
+    if (loadingH3) loadingH3.textContent = `Processing Batch (0 / ${files.length})`;
+    if (loadingP) loadingP.textContent = "Preparing resumes...";
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = '0%';
     
     batchResults = [];
     
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const formData = new FormData();
-        formData.append('resume', file);
-        
-        // Attach role data to each batch file
-        const activeRole = getActiveJobRole();
-        const activeJD = document.getElementById('jobDescriptionText')?.value?.trim() || '';
-        if (activeRole) {
-            formData.append('job_role', activeRole);
-            if (activeJD) formData.append('job_description', activeJD);
-        }
-        try {
-            const isProduction = window.location.hostname && 
-                                 !window.location.hostname.includes('localhost') && 
-                                 !window.location.hostname.includes('127.0.0.1') && 
-                                 !window.location.hostname.startsWith('192.168.') && 
-                                 window.location.protocol !== 'file:';
-            const API_URL = isProduction 
-                ? '/api' 
-                : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
-            const response = await fetch(`${API_URL}/upload`, {
-                method: 'POST',
-                body: formData
-            });
+    try {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
             
-            const data = await response.json();
+            if (loadingH3) loadingH3.textContent = `Processing Batch (${i + 1} / ${files.length})`;
             
-            if (data.success) {
-                batchResults.push({
-                    name: file.name,
-                    candidateName: data.data.name,
-                    fitScore: data.fit_score,
-                    success: true,
-                    image_base64: data.image_base64,
-                    data: data.data,
-                    gap_analysis: data.gap_analysis
+            // Loop through progress states for this specific resume to show progress
+            let fileStage = 0;
+            const fileStages = [
+                `[${file.name}] Uploading resumes...`,
+                `[${file.name}] Extracting content...`,
+                `[${file.name}] Analyzing resumes...`,
+                `[${file.name}] Ranking candidates...`,
+                `[${file.name}] Generating results...`
+            ];
+            
+            const fileInterval = setInterval(() => {
+                if (fileStage < fileStages.length) {
+                    const txt = fileStages[fileStage];
+                    if (loadingP) loadingP.textContent = txt;
+                    
+                    const basePct = (i / files.length) * 100;
+                    const stepPct = (fileStage / fileStages.length) * (100 / files.length);
+                    const totalPct = Math.round(basePct + stepPct);
+                    
+                    if (progressFill) progressFill.style.width = `${totalPct}%`;
+                    if (progressText) progressText.textContent = `${totalPct}% — ${txt}`;
+                    
+                    fileStage++;
+                }
+            }, 600);
+            
+            const formData = new FormData();
+            formData.append('resume', file);
+            
+            // Attach role data to each batch file
+            const activeRole = getActiveJobRole();
+            const activeJD = document.getElementById('jobDescriptionText')?.value?.trim() || '';
+            if (activeRole) {
+                formData.append('job_role', activeRole);
+                if (activeJD) formData.append('job_description', activeJD);
+            }
+            
+            try {
+                const API_URL = getApiUrl();
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
                 });
-            } else {
+                
+                // Check if duplicate request
+                if (response.status === 429) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || 'Duplicate request detected.');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    batchResults.push({
+                        name: file.name,
+                        candidateName: data.data.name,
+                        fitScore: data.fit_score,
+                        success: true,
+                        image_base64: data.image_base64,
+                        data: data.data,
+                        gap_analysis: data.gap_analysis
+                    });
+                } else {
+                    batchResults.push({
+                        name: file.name,
+                        success: false,
+                        error: data.error
+                    });
+                }
+            } catch (error) {
                 batchResults.push({
                     name: file.name,
                     success: false,
-                    error: data.error
+                    error: error.message
                 });
+            } finally {
+                clearInterval(fileInterval);
             }
-        } catch (error) {
-            batchResults.push({
-                name: file.name,
-                success: false,
-                error: error.message
-            });
+            
+            // Set 100% segment progress after each file completes
+            const completedPct = Math.round(((i + 1) / files.length) * 100);
+            if (progressFill) progressFill.style.width = `${completedPct}%`;
+            if (progressText) progressText.textContent = `${completedPct}% — Completed ${file.name}`;
         }
         
-        const completed = i + 1;
-        progressCount.textContent = `${completed} / ${files.length}`;
-        progressFill.style.width = `${(completed / files.length) * 100}%`;
+        // Show 100% final state briefly
+        if (progressFill) progressFill.style.width = '100%';
+        if (progressText) progressText.textContent = '100% — Batch Processing Complete!';
+        await new Promise(r => setTimeout(r, 600));
+        
+    } catch (err) {
+        console.error('Batch processing error:', err);
+    } finally {
+        loadingOverlay.style.display = 'none';
+        unlockUploadUI();
+        displayBatchResults(batchResults);
     }
-    
-    batchProgress.style.display = 'none';
-    displayBatchResults(batchResults);
 }
 
 // Display Batch Results
@@ -1586,6 +1732,101 @@ function setupTooltips() {
     });
 }
 
+// Preview Original Uploaded Resume Functions
+function previewOriginalUploadedFile() {
+    const file = fileInput.files[0] || currentPreviewFile;
+    if (!file) {
+        showNotification('No uploaded file found to preview', 'warning');
+        return;
+    }
+    const modal = document.getElementById('originalResumePreviewModal');
+    const previewContent = document.getElementById('originalResumePreviewContent');
+    if (!modal || !previewContent) return;
+    
+    previewContent.innerHTML = '<div class="preview-loading"><i class="fas fa-spinner fa-pulse"></i><span>Loading preview...</span></div>';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    try {
+        const fileType = file.type;
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        
+        if (fileType === 'application/pdf' || fileExtension === 'pdf') {
+            const fileUrl = URL.createObjectURL(file);
+            previewContent.innerHTML = `
+                <iframe src="${fileUrl}" style="width:100%; height:550px; border:none; border-radius:8px;"></iframe>
+            `;
+        } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileExtension === 'docx') {
+            previewContent.innerHTML = `
+                <div style="text-align: center; padding: 60px 40px; color: var(--text-primary);">
+                    <i class="fas fa-file-word" style="font-size: 80px; color: #2b5797; margin-bottom: 20px; display: block;"></i>
+                    <h4 style="margin-bottom: 10px;">${escapeHtml(file.name)}</h4>
+                    <p style="color: var(--text-secondary);">Direct browser preview is not available for DOCX files. The file was successfully uploaded and processed by the system.</p>
+                </div>
+            `;
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const previewText = text.substring(0, 5000);
+                previewContent.innerHTML = `
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 13px; margin: 0; padding: 16px; background: var(--bg-surface-alt); border-radius: 8px; color: var(--text-primary);">${escapeHtml(previewText)}${text.length > 5000 ? '\n\n... (file truncated)' : ''}</pre>
+                `;
+            };
+            reader.readAsText(file.slice(0, 5000));
+        }
+    } catch (error) {
+        console.error('Original preview error:', error);
+        previewContent.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-primary);"><i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 16px; display: block;"></i><span>Could not preview this file.</span></div>`;
+    }
+}
+
+function closeOriginalResumePreview() {
+    const modal = document.getElementById('originalResumePreviewModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'hidden'; // Keep body scroll locked for results page
+    }
+}
+
+function setupOriginalResumePreview() {
+    const previewInputResumeBtn = document.getElementById('previewInputResumeBtn');
+    if (previewInputResumeBtn) {
+        previewInputResumeBtn.addEventListener('click', previewOriginalUploadedFile);
+    }
+    const originalResumePreviewCloseBtn = document.getElementById('originalResumePreviewCloseBtn');
+    if (originalResumePreviewCloseBtn) {
+        originalResumePreviewCloseBtn.addEventListener('click', closeOriginalResumePreview);
+    }
+    const originalResumePreviewCancelBtn = document.getElementById('originalResumePreviewCancelBtn');
+    if (originalResumePreviewCancelBtn) {
+        originalResumePreviewCancelBtn.addEventListener('click', closeOriginalResumePreview);
+    }
+    const originalResumePreviewModal = document.getElementById('originalResumePreviewModal');
+    if (originalResumePreviewModal) {
+        originalResumePreviewModal.addEventListener('click', (e) => {
+            if (e.target === originalResumePreviewModal) closeOriginalResumePreview();
+        });
+    }
+    
+    // Toggle custom role input field in the skill modal
+    const includeBestSuitedRoleCheckbox = document.getElementById('includeBestSuitedRoleCheckbox');
+    if (includeBestSuitedRoleCheckbox) {
+        includeBestSuitedRoleCheckbox.addEventListener('change', () => {
+            const wrapper = document.getElementById('customModalRoleWrapper');
+            if (wrapper) {
+                if (includeBestSuitedRoleCheckbox.checked) {
+                    wrapper.style.display = 'block';
+                } else {
+                    wrapper.style.display = 'none';
+                    const input = document.getElementById('customModalRoleInput');
+                    if (input) input.value = '';
+                }
+            }
+        });
+    }
+}
+
 // Initialize
 initTheme();
 setupFileSelection();
@@ -1594,6 +1835,7 @@ setupPreviewModal();
 setupRoleSelector();
 setupTooltips();
 setupSkillModal();
+setupOriginalResumePreview();
 
 // Store batch results globally
 let batchResults = [];
