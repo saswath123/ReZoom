@@ -1,14 +1,6 @@
-For GitHub, the README should look like a **product landing page**, not a technical document. A modern README uses badges, feature cards, architecture diagrams, screenshots, workflow sections, and visually appealing formatting.
-
-Here's a more attractive version for **TalentLens** 👇
-
----
-
 # 🚀 TalentLens
 
 <div align="center">
-
-<img src="./assets/logo.png" alt="TalentLens Logo" width="180"/>
 
 ### AI-Powered Resume Intelligence Platform
 
