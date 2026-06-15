@@ -1,8 +1,10 @@
 <div align="center"> 
-TalentLens
-Smarter Resume Analysis. Better Hiring Decisions.
+
+  
+# 🚀 TalentLens
 
 <div align="center">
+
 
 ### AI-Powered Resume Intelligence Platform
 
