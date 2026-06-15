@@ -1,3 +1,5 @@
+<div align="center">
+
 # 🚀 TalentLens
 
 <div align="center">
