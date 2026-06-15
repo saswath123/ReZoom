@@ -1,4 +1,6 @@
-<div align="center"> # 🚀 TalentLens
+<div align="center"> 
+TalentLens
+Smarter Resume Analysis. Better Hiring Decisions.
 
 <div align="center">
 
