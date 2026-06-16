@@ -4,6 +4,7 @@ from datetime import datetime
 import math
 import io
 import base64
+import re
 
 def crop_to_circle(image, size):
     """Crop PIL Image to a circular shape of given size while maintaining aspect ratio"""
@@ -37,6 +38,58 @@ def crop_to_circle(image, size):
 def safe_str(value):
     """Convert None to empty string safely"""
     return str(value) if value is not None else ""
+
+def parse_raw_education(raw_str):
+    """Parse raw education string (e.g. 'B.Tech, Mechanical Engineering, Bharat University, Chennai, 2025, 68%')
+    into a structured dict with degree, institution, and year keys."""
+    if not raw_str:
+        return None
+    raw_str = str(raw_str)
+    parts = [p.strip() for p in raw_str.split(',') if p.strip()]
+    if not parts:
+        return None
+        
+    degree = ""
+    institution = ""
+    year = ""
+    
+    # Extract any 4-digit year first
+    year_match = re.search(r'\b(19\d{2}|20[0-2]\d|2030)\b', raw_str)
+    if year_match:
+        year = year_match.group(0)
+        # Remove year and optional percentage from parts to clean up degree and institution
+        parts = [p for p in parts if not re.search(r'\b' + year + r'\b', p)]
+    
+    # Remove items that look like percentages or CGPA
+    parts = [p for p in parts if not re.search(r'%\b|cgpa\b|gpa\b', p, re.IGNORECASE)]
+    
+    if len(parts) >= 2:
+        inst_idx = -1
+        for idx, p in enumerate(parts):
+            p_lower = p.lower()
+            if any(keyword in p_lower for keyword in ['university', 'college', 'school', 'polytechnic', 'institute', 'academy', 'vidyalaya']):
+                inst_idx = idx
+                break
+        
+        if inst_idx != -1:
+            degree = ", ".join(parts[:inst_idx])
+            institution = ", ".join(parts[inst_idx:])
+        else:
+            half = len(parts) // 2
+            degree = ", ".join(parts[:half])
+            institution = ", ".join(parts[half:])
+    elif len(parts) == 1:
+        degree = parts[0]
+        institution = "Institution not specified"
+    else:
+        degree = "Degree not specified"
+        institution = "Institution not specified"
+        
+    return {
+        "degree": degree or "Degree not specified",
+        "institution": institution or "Institution not specified",
+        "year": year
+    }
 
 def get_font(size, bold=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -542,58 +595,62 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     # --- LEFT COLUMN (x = 40 to 400) ---
     left_x = 40
     left_width = 360
-    
-    # CONTACT SECTION
+       # CONTACT SECTION
     y_left = draw_section_title(draw, left_x, 230, "CONTACT", "user")
     
     # Phone
     phone = data.get('phone') or 'Not specified'
     if phone:
-        draw_contact_icon(draw, left_x + 18, y_left + 12, "phone", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Phone", font_size=13, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(phone), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 38
+        y_start = y_left
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Phone", font_size=18, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(phone), font_size=18, color=COLOR_TEXT_CHARCOAL)
+        icon_cy = y_start + (y_det_end - y_start) // 2
+        draw_contact_icon(draw, left_x + 18, icon_cy, "phone", color=COLOR_LIGHT_TEAL)
+        y_left = y_det_end + 12
         
     # Location
     location = data.get('location') or 'Not specified'
     if location:
-        draw_contact_icon(draw, left_x + 18, y_left + 12, "location", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Location", font_size=13, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(location), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 38
+        y_start = y_left
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Location", font_size=18, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(location), font_size=18, color=COLOR_TEXT_CHARCOAL)
+        icon_cy = y_start + (y_det_end - y_start) // 2
+        draw_contact_icon(draw, left_x + 18, icon_cy, "location", color=COLOR_LIGHT_TEAL)
+        y_left = y_det_end + 12
         
     # Email
     email = data.get('email') or 'Not specified'
     if email:
-        draw_contact_icon(draw, left_x + 18, y_left + 12, "email", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Email", font_size=13, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(email), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 38
+        y_start = y_left
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Email", font_size=18, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(email), font_size=18, color=COLOR_TEXT_CHARCOAL)
+        icon_cy = y_start + (y_det_end - y_start) // 2
+        draw_contact_icon(draw, left_x + 18, icon_cy, "email", color=COLOR_LIGHT_TEAL)
+        y_left = y_det_end + 12
         
     # LinkedIn
     linkedin = data.get('linkedin') or ''
     if not linkedin:
         linkedin = f"linkedin.com/in/{name.lower().replace(' ', '')}"
     
-    draw_contact_icon(draw, left_x + 18, y_left + 12, "linkedin", color=COLOR_LIGHT_TEAL)
-    add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "LinkedIn", font_size=13, bold=True, color=COLOR_TEXT_DARK)
-    add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(linkedin), font_size=14, color=COLOR_TEXT_CHARCOAL)
-    y_left += 44
+    y_start = y_left
+    y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "LinkedIn", font_size=18, bold=True, color=COLOR_TEXT_DARK)
+    y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(linkedin), font_size=18, color=COLOR_TEXT_CHARCOAL)
+    icon_cy = y_start + (y_det_end - y_start) // 2
+    draw_contact_icon(draw, left_x + 18, icon_cy, "linkedin", color=COLOR_LIGHT_TEAL)
+    y_left = y_det_end + 12
     
     # Divider after CONTACT
     draw.line([(left_x, y_left), (left_x + left_width, y_left)], fill=COLOR_DIVIDER, width=1)
     y_left += 15
     
-    # TECHNICAL SKILLS SECTION
-    y_left = draw_section_title(draw, left_x, y_left, "TECHNICAL SKILLS", "code")
-    y_left += 5
-    
+    # Pre-select and count skills for vertical centering calculation
     skills_p = data.get("skill_proficiency") or []
     if not skills_p:
         flat = data.get("skills") or []
-        skills_p = [{"skill": s, "percentage": 80} for s in flat[:7]]
+        skills_p = [{"skill": s, "percentage": 80} for s in flat[:12]]
         
-    skills_p = skills_p[:7]
+    skills_p = skills_p[:12]
     num_skills = len(skills_p)
     
     # Adaptive sizing based on skill count
@@ -609,14 +666,50 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
         bar_h = 4
         bar_offset = 6
         item_spacing = 18
-    else:
+    elif num_skills <= 9:
         base_font_size = 14
         pct_font_size = 11
         bar_h = 3
         bar_offset = 5
         item_spacing = 12
+    else:
+        base_font_size = 13
+        pct_font_size = 10
+        bar_h = 3
+        bar_offset = 4
+        item_spacing = 8
         
+    # Calculate offset to center skills section vertically in the gap between contact & education
+    space_start = y_left
+    skills_height = 45 + 5 # title + offset
     for sp in skills_p:
+        skill_name = safe_str(sp.get("skill", ""))
+        f_size = base_font_size
+        if len(skill_name) > 40:
+            f_size = max(10, base_font_size - 3)
+        elif len(skill_name) > 25:
+            f_size = max(11, base_font_size - 2)
+            
+        try:
+            temp_font = get_font(f_size, bold=True)
+            lines = wrap_text(draw, skill_name, temp_font, left_width - 98)
+            line_count = len(lines) if lines else 1
+        except:
+            line_count = 1
+            
+        skills_height += (line_count * (f_size + 4)) + bar_offset + bar_h + item_spacing
+        
+    available_height = 980 - space_start
+    free_space = available_height - skills_height
+    if free_space > 0:
+        y_left += free_space // 2
+        
+    # TECHNICAL SKILLS SECTION
+    y_left = draw_section_title(draw, left_x, y_left, "TECHNICAL SKILLS", "code")
+    y_left += 5
+    
+    for sp in skills_p:
+
         skill_name = safe_str(sp.get("skill", ""))
         pct = min(100, max(10, int(sp.get("percentage") or 80)))
         
@@ -661,14 +754,39 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     else:
         edu_list = []
         
+    # Reconstruct/merge with education_raw to ensure we have all entries
+    education_raw = data.get('education_raw') or []
+    if isinstance(education_raw, list) and len(education_raw) > len(edu_list):
+        parsed_raw_list = []
+        for raw_str in education_raw:
+            parsed = parse_raw_education(raw_str)
+            if parsed:
+                parsed_raw_list.append(parsed)
+        if parsed_raw_list:
+            edu_list = parsed_raw_list
+            
     if not edu_list:
         edu_list = [{"degree": "Degree not specified", "institution": "Institution not specified", "year": ""}]
         
-    for edu in edu_list[:2]:
+    # Defensive layout check: if space is tight, only render as many education items as will fit to prevent vertical overflow
+    remaining_space = 1195 - y_left
+    if remaining_space < 100:
+        edu_list = edu_list[:1]
+    elif remaining_space < 145:
+        edu_list = edu_list[:2]
+    elif remaining_space < 190:
+        edu_list = edu_list[:3]
+        
+    for edu in edu_list[:4]:
         degree = safe_str(edu.get('degree', 'Degree'))
         institution = safe_str(edu.get('institution', 'Institution'))
         year = safe_str(edu.get('year', ''))
         
+        # Combine institution and year to save vertical space
+        inst_text = institution
+        if year:
+            inst_text = f"{institution} ({year})"
+            
         # Adaptive font scaling for degree
         degree_font_size = 15
         if len(degree) > 50:
@@ -678,15 +796,13 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
             
         # Adaptive font scaling for institution
         inst_font_size = 14
-        if len(institution) > 50:
+        if len(inst_text) > 50:
             inst_font_size = 10
-        elif len(institution) > 35:
+        elif len(inst_text) > 35:
             inst_font_size = 12
             
         y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, degree, font_size=degree_font_size, bold=True, color=COLOR_TEXT_DARK)
-        y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, institution, font_size=inst_font_size, color=COLOR_TEXT_CHARCOAL)
-        if year:
-            y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, year, font_size=12, color=COLOR_TEXT_MUTED)
+        y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, inst_text, font_size=inst_font_size, color=COLOR_TEXT_CHARCOAL)
         y_left += 6
         
         
