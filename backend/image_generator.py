@@ -544,41 +544,41 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     left_width = 360
     
     # CONTACT SECTION
-    y_left = draw_section_title(draw, left_x, 210, "CONTACT", "user")
+    y_left = draw_section_title(draw, left_x, 230, "CONTACT", "user")
     
     # Phone
     phone = data.get('phone') or 'Not specified'
     if phone:
-        draw_contact_icon(draw, left_x + 15, y_left + 12, "phone", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 35, y_left, left_width - 35, 20, "Phone", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 35, y_left + 18, left_width - 35, 20, safe_str(phone), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 42
+        draw_contact_icon(draw, left_x + 18, y_left + 12, "phone", color=COLOR_LIGHT_TEAL)
+        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Phone", font_size=13, bold=True, color=COLOR_TEXT_DARK)
+        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(phone), font_size=14, color=COLOR_TEXT_CHARCOAL)
+        y_left += 38
         
     # Location
     location = data.get('location') or 'Not specified'
     if location:
-        draw_contact_icon(draw, left_x + 15, y_left + 12, "location", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 35, y_left, left_width - 35, 20, "Location", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 35, y_left + 18, left_width - 35, 20, safe_str(location), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 42
+        draw_contact_icon(draw, left_x + 18, y_left + 12, "location", color=COLOR_LIGHT_TEAL)
+        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Location", font_size=13, bold=True, color=COLOR_TEXT_DARK)
+        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(location), font_size=14, color=COLOR_TEXT_CHARCOAL)
+        y_left += 38
         
     # Email
     email = data.get('email') or 'Not specified'
     if email:
-        draw_contact_icon(draw, left_x + 15, y_left + 12, "email", color=COLOR_LIGHT_TEAL)
-        add_text_box(draw, left_x + 35, y_left, left_width - 35, 20, "Email", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        add_text_box(draw, left_x + 35, y_left + 18, left_width - 35, 20, safe_str(email), font_size=14, color=COLOR_TEXT_CHARCOAL)
-        y_left += 42
+        draw_contact_icon(draw, left_x + 18, y_left + 12, "email", color=COLOR_LIGHT_TEAL)
+        add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "Email", font_size=13, bold=True, color=COLOR_TEXT_DARK)
+        add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(email), font_size=14, color=COLOR_TEXT_CHARCOAL)
+        y_left += 38
         
     # LinkedIn
     linkedin = data.get('linkedin') or ''
     if not linkedin:
         linkedin = f"linkedin.com/in/{name.lower().replace(' ', '')}"
     
-    draw_contact_icon(draw, left_x + 15, y_left + 12, "linkedin", color=COLOR_LIGHT_TEAL)
-    add_text_box(draw, left_x + 35, y_left, left_width - 35, 20, "LinkedIn", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-    add_text_box(draw, left_x + 35, y_left + 18, left_width - 35, 20, safe_str(linkedin), font_size=14, color=COLOR_TEXT_CHARCOAL)
-    y_left += 48
+    draw_contact_icon(draw, left_x + 18, y_left + 12, "linkedin", color=COLOR_LIGHT_TEAL)
+    add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, "LinkedIn", font_size=13, bold=True, color=COLOR_TEXT_DARK)
+    add_text_box(draw, left_x + 48, y_left + 16, left_width - 48, 20, safe_str(linkedin), font_size=14, color=COLOR_TEXT_CHARCOAL)
+    y_left += 44
     
     # Divider after CONTACT
     draw.line([(left_x, y_left), (left_x + left_width, y_left)], fill=COLOR_DIVIDER, width=1)
@@ -598,23 +598,23 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     # Adaptive sizing based on skill count
     if num_skills <= 5:
-        base_font_size = 15
-        pct_font_size = 13
+        base_font_size = 18
+        pct_font_size = 15
         bar_h = 5
-        bar_offset = 6
-        item_spacing = 14
+        bar_offset = 8
+        item_spacing = 24
     elif num_skills <= 7:
-        base_font_size = 13
-        pct_font_size = 11
+        base_font_size = 16
+        pct_font_size = 13
         bar_h = 4
-        bar_offset = 5
-        item_spacing = 10
+        bar_offset = 6
+        item_spacing = 18
     else:
-        base_font_size = 11
-        pct_font_size = 10
+        base_font_size = 14
+        pct_font_size = 11
         bar_h = 3
-        bar_offset = 4
-        item_spacing = 8
+        bar_offset = 5
+        item_spacing = 12
         
     for sp in skills_p:
         skill_name = safe_str(sp.get("skill", ""))
@@ -623,29 +623,31 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
         # Reduce font size further for exceptionally long skill names
         f_size = base_font_size
         if len(skill_name) > 40:
-            f_size = max(9, base_font_size - 2)
+            f_size = max(10, base_font_size - 3)
         elif len(skill_name) > 25:
-            f_size = max(10, base_font_size - 1)
+            f_size = max(11, base_font_size - 2)
             
         # Draw Percentage Value (right aligned, matching y_left)
         add_text_box(draw, left_x + left_width - 45, y_left, 45, 20, f"{pct}%", font_size=pct_font_size, color=COLOR_TEXT_MUTED, align="right")
         
         # Draw Skill Name (which wraps dynamically and returns the next Y coordinate)
-        next_y = add_text_box(draw, left_x + 15, y_left, left_width - 65, 20, skill_name, font_size=f_size, bold=True, color=COLOR_TEXT_DARK)
+        next_y = add_text_box(draw, left_x + 48, y_left, left_width - 98, 20, skill_name, font_size=f_size, bold=True, color=COLOR_TEXT_DARK)
         
         # Place the bar below the wrapped text
         bar_y = next_y + bar_offset
-        draw.rounded_rectangle([left_x + 15, bar_y, left_x + left_width, bar_y + bar_h], radius=2, fill=(226, 232, 240))
+        draw.rounded_rectangle([left_x + 48, bar_y, left_x + left_width, bar_y + bar_h], radius=2, fill=(226, 232, 240))
         
         # Bar fill
-        fill_w = int((left_width - 15) * pct / 100)
-        draw.rounded_rectangle([left_x + 15, bar_y, left_x + 15 + fill_w, bar_y + bar_h], radius=2, fill=COLOR_LIGHT_TEAL)
+        fill_w = int((left_width - 48) * pct / 100)
+        draw.rounded_rectangle([left_x + 48, bar_y, left_x + 48 + fill_w, bar_y + bar_h], radius=2, fill=COLOR_LIGHT_TEAL)
         
         y_left = bar_y + bar_h + item_spacing
         
     # Divider after SKILLS
     draw.line([(left_x, y_left), (left_x + left_width, y_left)], fill=COLOR_DIVIDER, width=1)
-    y_left += 15
+    
+    # Push the education section to the bottom of the left column (at least y = 980)
+    y_left = max(y_left + 45, 980)
     
     # EDUCATION SECTION
     y_left = draw_section_title(draw, left_x, y_left, "EDUCATION", "education")
@@ -667,10 +669,24 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
         institution = safe_str(edu.get('institution', 'Institution'))
         year = safe_str(edu.get('year', ''))
         
-        y_left = add_text_box(draw, left_x + 15, y_left, left_width - 15, 20, degree, font_size=15, bold=True, color=COLOR_TEXT_DARK)
-        y_left = add_text_box(draw, left_x + 15, y_left, left_width - 15, 20, institution, font_size=14, color=COLOR_TEXT_CHARCOAL)
+        # Adaptive font scaling for degree
+        degree_font_size = 15
+        if len(degree) > 50:
+            degree_font_size = 11
+        elif len(degree) > 35:
+            degree_font_size = 13
+            
+        # Adaptive font scaling for institution
+        inst_font_size = 14
+        if len(institution) > 50:
+            inst_font_size = 10
+        elif len(institution) > 35:
+            inst_font_size = 12
+            
+        y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, degree, font_size=degree_font_size, bold=True, color=COLOR_TEXT_DARK)
+        y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, institution, font_size=inst_font_size, color=COLOR_TEXT_CHARCOAL)
         if year:
-            y_left = add_text_box(draw, left_x + 15, y_left, left_width - 15, 20, year, font_size=13, color=COLOR_TEXT_MUTED)
+            y_left = add_text_box(draw, left_x + 48, y_left, left_width - 48, 20, year, font_size=12, color=COLOR_TEXT_MUTED)
         y_left += 6
         
         
