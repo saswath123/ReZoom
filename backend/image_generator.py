@@ -647,29 +647,29 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     # Adaptive sizing based on skill count
     if num_skills <= 5:
+        base_font_size = 20
+        pct_font_size = 16
+        bar_h = 6
+        bar_offset = 10
+        item_spacing = 28
+    elif num_skills <= 7:
         base_font_size = 18
         pct_font_size = 15
         bar_h = 5
         bar_offset = 8
-        item_spacing = 24
-    elif num_skills <= 7:
+        item_spacing = 22
+    elif num_skills <= 9:
         base_font_size = 16
         pct_font_size = 13
         bar_h = 4
-        bar_offset = 6
-        item_spacing = 18
-    elif num_skills <= 9:
-        base_font_size = 14
-        pct_font_size = 11
-        bar_h = 3
-        bar_offset = 5
-        item_spacing = 12
+        bar_offset = 7
+        item_spacing = 16
     else:
-        base_font_size = 13
-        pct_font_size = 10
-        bar_h = 3
-        bar_offset = 4
-        item_spacing = 8
+        base_font_size = 15
+        pct_font_size = 12
+        bar_h = 4
+        bar_offset = 6
+        item_spacing = 12
         
     for sp in skills_p:
         skill_name = safe_str(sp.get("skill", ""))
@@ -755,7 +755,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
             
         edu_height += (deg_lines * (degree_font_size + 4)) + (inst_lines * (inst_font_size + 4)) + 6
         
-    free_edu_space = 930 - edu_start - edu_height
+    free_edu_space = 960 - edu_start - edu_height
     if free_edu_space > 0:
         y_left += free_edu_space // 2
         
@@ -792,8 +792,8 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     # Divider after EDUCATION
     draw.line([(left_x, y_left), (left_x + left_width, y_left)], fill=COLOR_DIVIDER, width=1)
     
-    # 3. CONTACT SECTION (At the bottom, starts at max(y_left + 45, 930))
-    y_left = max(y_left + 45, 930)
+    # 3. CONTACT SECTION (At the bottom, starts at max(y_left + 45, 960))
+    y_left = max(y_left + 45, 960)
     
     # Contact items spacing adjustment if remaining space is tight
     remaining_contact_space = 1195 - y_left
@@ -807,8 +807,8 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     phone = data.get('phone') or 'Not specified'
     if phone:
         y_start = y_left
-        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Phone", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(phone), font_size=15, color=COLOR_TEXT_CHARCOAL)
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Phone", font_size=12, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(phone), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "phone", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -817,8 +817,8 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     location = data.get('location') or 'Not specified'
     if location:
         y_start = y_left
-        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Location", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(location), font_size=15, color=COLOR_TEXT_CHARCOAL)
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Location", font_size=12, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(location), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "location", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -827,8 +827,8 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     email = data.get('email') or 'Not specified'
     if email:
         y_start = y_left
-        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Email", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(email), font_size=15, color=COLOR_TEXT_CHARCOAL)
+        y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Email", font_size=12, bold=True, color=COLOR_TEXT_DARK)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(email), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "email", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -839,8 +839,8 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
         linkedin = f"linkedin.com/in/{name.lower().replace(' ', '')}"
     
     y_start = y_left
-    y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "LinkedIn", font_size=14, bold=True, color=COLOR_TEXT_DARK)
-    y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(linkedin), font_size=15, color=COLOR_TEXT_CHARCOAL)
+    y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "LinkedIn", font_size=12, bold=True, color=COLOR_TEXT_DARK)
+    y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(linkedin), font_size=13, color=COLOR_TEXT_CHARCOAL)
     icon_cy = y_start + (y_det_end - y_start) // 2
     draw_contact_icon(draw, left_x + 18, icon_cy, "linkedin", color=COLOR_LIGHT_TEAL)
     y_left = y_det_end + contact_spacing
