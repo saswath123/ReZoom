@@ -755,7 +755,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
             
         edu_height += (deg_lines * (degree_font_size + 4)) + (inst_lines * (inst_font_size + 4)) + 6
         
-    free_edu_space = 960 - edu_start - edu_height
+    free_edu_space = 930 - edu_start - edu_height
     if free_edu_space > 0:
         y_left += free_edu_space // 2
         
@@ -792,12 +792,12 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     # Divider after EDUCATION
     draw.line([(left_x, y_left), (left_x + left_width, y_left)], fill=COLOR_DIVIDER, width=1)
     
-    # 3. CONTACT SECTION (At the bottom, starts at max(y_left + 45, 960))
-    y_left = max(y_left + 45, 960)
+    # 3. CONTACT SECTION (At the bottom, starts at max(y_left + 30, 930))
+    y_left = max(y_left + 30, 930)
     
     # Contact items spacing adjustment if remaining space is tight
     remaining_contact_space = 1195 - y_left
-    contact_spacing = 12
+    contact_spacing = 8
     if remaining_contact_space < 250:
         contact_spacing = 6
         
@@ -808,7 +808,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     if phone:
         y_start = y_left
         y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Phone", font_size=12, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(phone), font_size=13, color=COLOR_TEXT_CHARCOAL)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 1, left_width - 48, 20, safe_str(phone), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "phone", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -818,7 +818,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     if location:
         y_start = y_left
         y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Location", font_size=12, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(location), font_size=13, color=COLOR_TEXT_CHARCOAL)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 1, left_width - 48, 20, safe_str(location), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "location", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -828,7 +828,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     if email:
         y_start = y_left
         y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "Email", font_size=12, bold=True, color=COLOR_TEXT_DARK)
-        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(email), font_size=13, color=COLOR_TEXT_CHARCOAL)
+        y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 1, left_width - 48, 20, safe_str(email), font_size=13, color=COLOR_TEXT_CHARCOAL)
         icon_cy = y_start + (y_det_end - y_start) // 2
         draw_contact_icon(draw, left_x + 18, icon_cy, "email", color=COLOR_LIGHT_TEAL)
         y_left = y_det_end + contact_spacing
@@ -840,7 +840,7 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
     
     y_start = y_left
     y_lbl_end = add_text_box(draw, left_x + 48, y_start, left_width - 48, 20, "LinkedIn", font_size=12, bold=True, color=COLOR_TEXT_DARK)
-    y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 2, left_width - 48, 20, safe_str(linkedin), font_size=13, color=COLOR_TEXT_CHARCOAL)
+    y_det_end = add_text_box(draw, left_x + 48, y_lbl_end + 1, left_width - 48, 20, safe_str(linkedin), font_size=13, color=COLOR_TEXT_CHARCOAL)
     icon_cy = y_start + (y_det_end - y_start) // 2
     draw_contact_icon(draw, left_x + 18, icon_cy, "linkedin", color=COLOR_LIGHT_TEAL)
     y_left = y_det_end + contact_spacing
