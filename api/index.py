@@ -485,8 +485,8 @@ def generate_resume_step():
         if not structured_data:
             return jsonify({"error": "No resume data provided"}), 400
 
-        # Override skill_proficiency with user-selected skills (max 7)
-        structured_data["skill_proficiency"] = selected_skills[:7]
+        # Override skill_proficiency with user-selected skills (max 12)
+        structured_data["skill_proficiency"] = selected_skills[:12]
         structured_data["include_fit_score"] = body.get("include_fit_score", False)
         structured_data["include_best_suited_role"] = body.get("include_best_suited_role", False)
         if body.get("job_role"):
@@ -667,13 +667,13 @@ def upload_resume():
         experience_raw = ensure_list_of_strings(structured_data.get("experience_raw"))
         gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
 
-        # For batch: auto-use top 7 skills
+        # For batch: auto-use top 12 skills
         skill_proficiency = sanitize_skill_proficiency(structured_data.get("skill_proficiency"))
         if not skill_proficiency:
             flat = ensure_list_of_strings(structured_data.get("skills"))
-            skill_proficiency = [{"skill": s, "percentage": 80, "category": "Other"} for s in flat[:7]]
+            skill_proficiency = [{"skill": s, "percentage": 80, "category": "Other"} for s in flat[:12]]
         skill_proficiency.sort(key=lambda x: x.get("percentage", 80), reverse=True)
-        structured_data["skill_proficiency"] = skill_proficiency[:7]
+        structured_data["skill_proficiency"] = skill_proficiency[:12]
         structured_data["job_role"] = job_role if job_role else None
 
         # Generate PNG image
