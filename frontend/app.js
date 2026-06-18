@@ -418,7 +418,7 @@ async function uploadResume() {
 // Skill Modal
 // ─────────────────────────────────────────────────────────────
 function openSkillModal(recommended, all) {
-    if (!_selectedSkills || _selectedSkills.length !== 7) {
+    if (!_selectedSkills || _selectedSkills.length === 0) {
         _selectedSkills = recommended.slice(0, 7);
     }
     _allSkills      = all.length > 0 ? all : recommended;
@@ -442,17 +442,32 @@ function renderSkillModal(filter = '') {
 
     const count = _selectedSkills.length;
     counter.textContent = count;
-    counterWrap.classList.toggle('over', count > 7);
-    generateBtn.disabled = count !== 7;
+    generateBtn.disabled = count === 0;
 
     // Selected chips
     selectedGrid.innerHTML = '';
     _selectedSkills.forEach(sp => {
-        const chip = _makeChip(sp, true, recommended = _allSkills.slice(0, 7).some(r => r.skill === sp.skill));
-        chip.addEventListener('click', () => {
-            _selectedSkills = _selectedSkills.filter(s => s.skill !== sp.skill);
-            renderSkillModal(document.getElementById('skillSearchInput').value);
-        });
+        const isAI = _allSkills.slice(0, 7).some(r => r.skill === sp.skill);
+        const chip = _makeChip(sp, true, isAI);
+        
+        // Setup click on name to deselect
+        const nameEl = chip.querySelector('.skill-chip-name');
+        if (nameEl) {
+            nameEl.addEventListener('click', () => {
+                _selectedSkills = _selectedSkills.filter(s => s.skill !== sp.skill);
+                renderSkillModal(document.getElementById('skillSearchInput').value);
+            });
+        }
+        
+        // Setup click on remove cross to deselect
+        const removeEl = chip.querySelector('.skill-chip-remove');
+        if (removeEl) {
+            removeEl.addEventListener('click', () => {
+                _selectedSkills = _selectedSkills.filter(s => s.skill !== sp.skill);
+                renderSkillModal(document.getElementById('skillSearchInput').value);
+            });
+        }
+        
         selectedGrid.appendChild(chip);
     });
     if (_selectedSkills.length === 0) {
@@ -469,11 +484,7 @@ function renderSkillModal(filter = '') {
         const isAI = _allSkills.indexOf(sp) < 7;
         const chip = _makeChip(sp, false, isAI);
         chip.addEventListener('click', () => {
-            if (_selectedSkills.length >= 7) {
-                showNotification('Maximum 7 skills allowed. Remove one first.', 'warning');
-                return;
-            }
-            _selectedSkills.push(sp);
+            _selectedSkills.push({ ...sp });
             renderSkillModal(document.getElementById('skillSearchInput').value);
         });
         allGrid.appendChild(chip);
@@ -484,16 +495,53 @@ function renderSkillModal(filter = '') {
 }
 
 function _makeChip(sp, selected, isAI) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `skill-chip${selected ? ' selected' : ''}${isAI ? ' ai-pick' : ''}`;
+    if (selected) {
+        const chip = document.createElement('div');
+        chip.className = `skill-chip selected${isAI ? ' ai-pick' : ''}`;
+        
+        let inner = '';
+        inner += `<span class="skill-chip-name" title="Click to deselect">${escapeHtml(sp.skill)}</span>`;
+        inner += `
+            <div class="skill-pct-editor">
+                <input type="number" class="skill-pct-input" min="10" max="100" value="${sp.percentage || 80}" />
+                <span class="pct-symbol">%</span>
+            </div>
+        `;
+        inner += `<button type="button" class="skill-chip-remove" title="Deselect skill">&times;</button>`;
+        
+        chip.innerHTML = inner;
+        
+        const pctInput = chip.querySelector('.skill-pct-input');
+        if (pctInput) {
+            pctInput.addEventListener('change', (e) => {
+                let val = parseInt(e.target.value, 10);
+                if (isNaN(val)) val = 80;
+                val = Math.max(10, Math.min(100, val));
+                e.target.value = val;
+                
+                const targetSkill = _selectedSkills.find(s => s.skill === sp.skill);
+                if (targetSkill) targetSkill.percentage = val;
+                
+                const allSkill = _allSkills.find(s => s.skill === sp.skill);
+                if (allSkill) allSkill.percentage = val;
+            });
+            pctInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+        return chip;
+    } else {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = `skill-chip${isAI ? ' ai-pick' : ''}`;
 
-    let inner = '';
-    if (isAI && !selected) inner += '<span class="ai-badge">AI</span>';
-    inner += escapeHtml(sp.skill);
-    if (sp.percentage) inner += ` <span class="chip-pct">${sp.percentage}%</span>`;
-    chip.innerHTML = inner;
-    return chip;
+        let inner = '';
+        if (isAI) inner += '<span class="ai-badge">AI</span>';
+        inner += escapeHtml(sp.skill);
+        if (sp.percentage) inner += ` <span class="chip-pct">${sp.percentage}%</span>`;
+        chip.innerHTML = inner;
+        return chip;
+    }
 }
 
 function setupSkillModal() {
@@ -501,6 +549,23 @@ function setupSkillModal() {
     const searchInput = document.getElementById('skillSearchInput');
     if (searchInput) {
         searchInput.addEventListener('input', () => renderSkillModal(searchInput.value));
+    }
+
+    // Add custom skill button
+    const addCustomBtn = document.getElementById('addCustomSkillBtn');
+    if (addCustomBtn) {
+        addCustomBtn.addEventListener('click', () => {
+            handleAddCustomSkill();
+        });
+    }
+
+    const customNameInput = document.getElementById('customSkillNameInput');
+    if (customNameInput) {
+        customNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAddCustomSkill();
+            }
+        });
     }
 
     // Skip button — use AI selection as-is
@@ -516,12 +581,18 @@ function setupSkillModal() {
     const generateBtn = document.getElementById('skillGenerateBtn');
     if (generateBtn) {
         generateBtn.addEventListener('click', () => {
-            if (_selectedSkills.length !== 7) {
-                showNotification('Please select exactly 7 skills', 'warning');
+            if (_selectedSkills.length === 0) {
+                showNotification('Please select at least 1 skill', 'warning');
                 return;
             }
             triggerGenerateResume();
         });
+    }
+
+    // Close button
+    const closeBtn = document.getElementById('skillModalCloseBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeSkillModal);
     }
 
     // Close on overlay click
@@ -531,6 +602,57 @@ function setupSkillModal() {
             if (e.target === overlay) closeSkillModal();
         });
     }
+}
+
+function handleAddCustomSkill() {
+    const nameInput = document.getElementById('customSkillNameInput');
+    const pctInput = document.getElementById('customSkillPctInput');
+    if (!nameInput || !pctInput) return;
+
+    const name = nameInput.value.trim();
+    let pct = parseInt(pctInput.value, 10);
+    if (isNaN(pct)) pct = 80;
+    pct = Math.max(10, Math.min(100, pct));
+
+    if (!name) {
+        showNotification('Please enter a skill name', 'warning');
+        return;
+    }
+
+    // Check if already selected
+    const alreadySelected = _selectedSkills.some(s => s.skill.toLowerCase() === name.toLowerCase());
+    if (alreadySelected) {
+        showNotification(`"${name}" is already in your selected list`, 'warning');
+        return;
+    }
+
+    // Create the skill object
+    const newSkill = {
+        skill: name,
+        percentage: pct,
+        category: 'Other'
+    };
+
+    // Add to selected list
+    _selectedSkills.push(newSkill);
+
+    // Also add to all list if not present so it shows up if deselected
+    const existsInAll = _allSkills.some(s => s.skill.toLowerCase() === name.toLowerCase());
+    if (!existsInAll) {
+        _allSkills.push(newSkill);
+    } else {
+        // Update its percentage in all skills as well
+        const match = _allSkills.find(s => s.skill.toLowerCase() === name.toLowerCase());
+        if (match) match.percentage = pct;
+    }
+
+    // Reset inputs
+    nameInput.value = '';
+    pctInput.value = '80';
+
+    // Rerender modal
+    renderSkillModal(document.getElementById('skillSearchInput')?.value || '');
+    showNotification(`Added custom skill "${name}"`, 'success');
 }
 
 // Step 2: Call /api/generate with selected skills

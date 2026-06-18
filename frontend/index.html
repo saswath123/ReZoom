@@ -671,9 +671,10 @@
                     <div class="skill-modal-icon"><i class="fas fa-sliders-h"></i></div>
                     <div>
                         <h2 id="skillModalTitle">Customize Your Resume Skills</h2>
-                        <p>Select exactly <strong>7 skills</strong> to highlight on your professional resume</p>
+                        <p>Select skills to highlight on your professional resume</p>
                     </div>
                 </div>
+                <button class="skill-modal-close" id="skillModalCloseBtn" aria-label="Close modal">&times;</button>
             </div>
 
             <!-- Scrollable Content Body -->
@@ -692,11 +693,23 @@
                         autocomplete="off">
                 </div>
 
+                <!-- Add Custom Skill -->
+                <div class="skill-add-custom-wrapper">
+                    <input type="text" id="customSkillNameInput" class="skill-custom-input" placeholder="Add custom skill (e.g. React)..." autocomplete="off">
+                    <div class="skill-custom-pct-wrapper">
+                        <input type="number" id="customSkillPctInput" class="skill-custom-pct" min="10" max="100" value="80">
+                        <span class="pct-symbol">%</span>
+                    </div>
+                    <button type="button" id="addCustomSkillBtn" class="skill-btn-add-custom">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+
                 <!-- Selected skills row -->
                 <div class="skill-section-label" id="selectedSkillsLabel">
                     <i class="fas fa-check-circle"></i> Selected Skills 
                     <span class="skill-counter-inline" id="skillCounter">
-                        (<span id="skillCountNum">7</span>/7 selected)
+                        (<span id="skillCountNum">7</span> selected)
                     </span>
                 </div>
                 <div class="skill-chips-grid" id="selectedSkillsGrid"><!-- JS fills --></div>
