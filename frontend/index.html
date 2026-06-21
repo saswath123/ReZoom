@@ -802,9 +802,193 @@
                 <button class="skill-btn-skip" id="skillSkipBtn">
                     <i class="fas fa-forward"></i> Skip — use AI selection
                 </button>
+                <button class="skill-btn-edit" id="skillEditBtn">
+                    <i class="fas fa-edit"></i> Live Edit
+                </button>
                 <button class="skill-btn-generate" id="skillGenerateBtn" disabled>
                     <i class="fas fa-magic"></i> Generate Resume
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         LIVE EDIT MODAL (Canva-Style Fullscreen Editor)
+    ══════════════════════════════════════════════════ -->
+    <div class="live-edit-modal-overlay" id="liveEditModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="liveEditModalTitle">
+        <div class="live-edit-container">
+            <!-- Left Panel: Edit Controls -->
+            <div class="live-edit-controls-panel">
+                <div class="live-edit-panel-header">
+                    <div class="live-edit-title-group">
+                        <h2 id="liveEditModalTitle"><i class="fas fa-edit"></i> Live Edit Mode</h2>
+                        <p>Customize report details in real-time</p>
+                    </div>
+                    <button class="live-edit-close-btn" id="liveEditCloseBtn" aria-label="Close editor">&times;</button>
+                </div>
+                
+                <!-- Tabs Navigation -->
+                <div class="live-edit-tabs">
+                    <button class="edit-tab-btn active" data-tab="profile">
+                        <i class="fas fa-user-tie"></i> Profile
+                    </button>
+                    <button class="edit-tab-btn" data-tab="skills">
+                        <i class="fas fa-laptop-code"></i> Skills
+                    </button>
+                    <button class="edit-tab-btn" data-tab="experience">
+                        <i class="fas fa-briefcase"></i> Experience
+                    </button>
+                    <button class="edit-tab-btn" data-tab="projects">
+                        <i class="fas fa-project-diagram"></i> Projects
+                    </button>
+                    <button class="edit-tab-btn" data-tab="edu-certs">
+                        <i class="fas fa-graduation-cap"></i> Edu & Certs
+                    </button>
+                </div>
+                
+                <div class="live-edit-sections-wrapper">
+                    <!-- Card 1: Profile & Settings -->
+                    <div class="edit-section-card active" data-tab-content="profile">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-user-tie"></i> Candidate Profile & Settings</h3>
+                        </div>
+                        <div class="edit-section-body">
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editName">Full Name</label>
+                                    <input type="text" id="editName">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editTitle">Professional Title</label>
+                                    <input type="text" id="editTitle">
+                                </div>
+                            </div>
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editEmail">Email</label>
+                                    <input type="email" id="editEmail">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editPhone">Phone</label>
+                                    <input type="text" id="editPhone">
+                                </div>
+                            </div>
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editLocation">Location</label>
+                                    <input type="text" id="editLocation">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editLinkedIn">LinkedIn</label>
+                                    <input type="text" id="editLinkedIn">
+                                </div>
+                            </div>
+                            <div class="input-field full-width">
+                                <label for="editSummary">Professional Summary</label>
+                                <textarea id="editSummary" rows="4"></textarea>
+                            </div>
+                            <div class="edit-section-subheader" style="margin-top: 10px;">
+                                <h4>Report Settings (Fit Score)</h4>
+                            </div>
+                            <div class="input-group-row align-center">
+                                <div class="input-field" style="flex: 2;">
+                                    <label for="editFitScore">Fit Score Percentage</label>
+                                    <div class="range-slider-wrapper">
+                                        <input type="range" id="editFitScore" min="0" max="100" value="85">
+                                        <span class="range-val" id="editFitScoreVal">85%</span>
+                                    </div>
+                                </div>
+                                <div class="checkbox-field" style="flex: 1; padding-top: 18px;">
+                                    <label class="custom-checkbox-container">
+                                        <input type="checkbox" id="editIncludeFitScore">
+                                        <span class="checkmark"></span>
+                                        Show Fit Score
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 2: Technical Skills -->
+                    <div class="edit-section-card" data-tab-content="skills">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-laptop-code"></i> Technical Skills</h3>
+                            <button type="button" class="btn-add-item" id="addEditSkillBtn"><i class="fas fa-plus"></i> Add Skill</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editSkillsContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 3: Professional Experience -->
+                    <div class="edit-section-card" data-tab-content="experience">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-briefcase"></i> Professional Experience</h3>
+                            <button type="button" class="btn-add-item" id="addEditExpBtn"><i class="fas fa-plus"></i> Add Experience</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editExpContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 4: Projects -->
+                    <div class="edit-section-card" data-tab-content="projects">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-project-diagram"></i> Projects</h3>
+                            <button type="button" class="btn-add-item" id="addEditProjBtn"><i class="fas fa-plus"></i> Add Project</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editProjContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 5: Education & Certifications -->
+                    <div class="edit-section-card" data-tab-content="edu-certs">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-graduation-cap"></i> Education & Certs</h3>
+                        </div>
+                        <div class="edit-section-body">
+                            <div class="edit-section-subheader">
+                                <h4>Education</h4>
+                                <button type="button" class="btn-add-item" id="addEditEduBtn"><i class="fas fa-plus"></i> Add Education</button>
+                            </div>
+                            <div id="editEduContainer" class="dynamic-list-container" style="margin-bottom: 20px;">
+                                <!-- Filled by JS -->
+                            </div>
+                            
+                            <div class="edit-section-subheader">
+                                <h4>Certifications</h4>
+                                <button type="button" class="btn-add-item" id="addEditCertBtn"><i class="fas fa-plus"></i> Add Certification</button>
+                            </div>
+                            <div id="editCertContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="live-edit-panel-footer">
+                    <button class="btn-secondary" id="liveEditCancelBtn"><i class="fas fa-times"></i> Cancel</button>
+                    <button class="btn-primary" id="liveEditSaveBtn"><i class="fas fa-check"></i> Generate Final Report</button>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Live Preview -->
+            <div class="live-edit-preview-panel">
+                <div class="preview-panel-header">
+                    <span><i class="fas fa-eye"></i> Live Report Preview</span>
+                </div>
+                <div class="preview-scroll-container">
+                    <div class="resume-report-preview" id="resumeReportPreview">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>

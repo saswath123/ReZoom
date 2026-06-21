@@ -222,6 +222,7 @@ let _skillModalAnalysis = null;   // gap_analysis from /api/analyze
 let _skillModalResponse = null;   // full analyze response
 let _selectedSkills     = [];     // currently selected skill objects
 let _allSkills          = [];     // all skill objects from API
+let _editableProfile    = null;   // cloned profile for Live Edit mode
 
 function getApiUrl() {
     const isProduction = window.location.hostname &&
@@ -574,6 +575,14 @@ function setupSkillModal() {
         skipBtn.addEventListener('click', () => {
             // Already have _selectedSkills (AI picks); proceed
             triggerGenerateResume();
+        });
+    }
+
+    // Live Edit button
+    const editBtn = document.getElementById('skillEditBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            openLiveEditModal();
         });
     }
 
@@ -2164,6 +2173,979 @@ function setupOriginalResumePreview() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+// LIVE EDIT MODE FUNCTIONALITY
+// ─────────────────────────────────────────────────────────────
+
+function openLiveEditModal() {
+    if (!_skillModalData) {
+        showNotification('No resume analysis data found to edit', 'error');
+        return;
+    }
+    
+    // Deep clone original data
+    _editableProfile = JSON.parse(JSON.stringify(_skillModalData));
+    
+    // Defensive normalization of dynamic sub-lists
+    if (!_editableProfile.skill_proficiency) {
+        if (_editableProfile.skills) {
+            _editableProfile.skill_proficiency = _editableProfile.skills.slice(0, 12).map(s => ({ skill: s, percentage: 80 }));
+        } else {
+            _editableProfile.skill_proficiency = [];
+        }
+    } else if (!Array.isArray(_editableProfile.skill_proficiency)) {
+        _editableProfile.skill_proficiency = [_editableProfile.skill_proficiency];
+    }
+    
+    // Align with skill modal selections
+    if (_selectedSkills && _selectedSkills.length > 0) {
+        _editableProfile.skill_proficiency = JSON.parse(JSON.stringify(_selectedSkills));
+    }
+    
+    // Normalize Experience List
+    if (_editableProfile.latest_3_experiences) {
+        if (!Array.isArray(_editableProfile.latest_3_experiences)) {
+            _editableProfile.latest_3_experiences = [_editableProfile.latest_3_experiences];
+        }
+        _editableProfile.latest_3_experiences = _editableProfile.latest_3_experiences.map(exp => {
+            if (exp && typeof exp === 'object') {
+                return {
+                    role: exp.role || exp.title || '',
+                    company: exp.company || '',
+                    duration: exp.duration || '',
+                    responsibilities: Array.isArray(exp.responsibilities) ? exp.responsibilities : [exp.responsibilities || ''],
+                    technologies: Array.isArray(exp.technologies) ? exp.technologies : (exp.technologies ? [exp.technologies] : [])
+                };
+            }
+            return { role: String(exp || ''), company: '', duration: '', responsibilities: [], technologies: [] };
+        });
+    } else {
+        _editableProfile.latest_3_experiences = [];
+    }
+
+    // Normalize Projects List
+    if (_editableProfile.projects) {
+        if (!Array.isArray(_editableProfile.projects)) {
+            _editableProfile.projects = [_editableProfile.projects];
+        }
+        _editableProfile.projects = _editableProfile.projects.map(p => {
+            if (p && typeof p === 'object') {
+                return {
+                    name: p.name || p.title || '',
+                    description: p.description || p.desc || ''
+                };
+            } else if (typeof p === 'string') {
+                const idxColon = p.indexOf(':');
+                if (idxColon > 0) {
+                    return {
+                        name: p.slice(0, idxColon).trim(),
+                        description: p.slice(idxColon + 1).trim()
+                    };
+                }
+                return { name: p.trim(), description: '' };
+            }
+            return { name: '', description: '' };
+        });
+    } else {
+        _editableProfile.projects = [];
+    }
+
+    // Normalize Education List
+    if (_editableProfile.education) {
+        if (!Array.isArray(_editableProfile.education)) {
+            _editableProfile.education = [_editableProfile.education];
+        }
+        _editableProfile.education = _editableProfile.education.map(e => {
+            if (e && typeof e === 'object') {
+                return {
+                    degree: e.degree || '',
+                    institution: e.institution || e.university || '',
+                    year: e.year || e.duration || ''
+                };
+            }
+            return { degree: String(e || ''), institution: '', year: '' };
+        });
+    } else {
+        _editableProfile.education = [];
+    }
+
+    // Normalize Certifications List (convert dict objects to clean display strings)
+    if (_editableProfile.certifications) {
+        if (!Array.isArray(_editableProfile.certifications)) {
+            _editableProfile.certifications = [_editableProfile.certifications];
+        }
+        _editableProfile.certifications = _editableProfile.certifications.map(c => {
+            if (c && typeof c === 'object') {
+                const cName = c.name || c.title || c.certification_name || '';
+                const cOrg = c.organization || c.authority || c.issuer || c.org || '';
+                const cYear = c.year || c.date || '';
+                let val = cName;
+                if (cOrg) val += ` from ${cOrg}`;
+                if (cYear) val += ` (${cYear})`;
+                return val.trim();
+            }
+            return String(c || '');
+        }).filter(Boolean);
+    } else {
+        _editableProfile.certifications = [];
+    }
+    
+    // Populate simple inputs
+    document.getElementById('editName').value = _editableProfile.name || '';
+    
+    const customRoleInput = document.getElementById('customModalRoleInput');
+    const customRoleVal = customRoleInput ? customRoleInput.value.trim() : '';
+    const resolvedRole = customRoleVal || _editableProfile.custom_role || _editableProfile.job_role || _editableProfile.recommended_role || _editableProfile.current_role || 'Professional';
+    document.getElementById('editTitle').value = resolvedRole;
+    
+    document.getElementById('editEmail').value = _editableProfile.email || '';
+    document.getElementById('editPhone').value = _editableProfile.phone || '';
+    document.getElementById('editLocation').value = _editableProfile.location || '';
+    document.getElementById('editLinkedIn').value = _editableProfile.linkedin || '';
+    document.getElementById('editSummary').value = _editableProfile.professional_summary || '';
+    
+    // Fit score elements
+    const includeFitScore = document.getElementById('includeFitScoreCheckbox')?.checked || false;
+    const fitScore = _editableProfile.fit_score !== undefined ? _editableProfile.fit_score : 85;
+    document.getElementById('editIncludeFitScore').checked = includeFitScore;
+    document.getElementById('editFitScore').value = fitScore;
+    document.getElementById('editFitScoreVal').textContent = fitScore + '%';
+    
+    // Render all subcards
+    renderEditSkills();
+    renderEditExperience();
+    renderEditProjects();
+    renderEditEducation();
+    renderEditCertifications();
+    
+    // Render visual live preview
+    renderLivePreview();
+    
+    // Transition modals
+    closeSkillModal();
+    document.getElementById('liveEditModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLiveEditModal() {
+    document.getElementById('liveEditModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    document.getElementById('skillModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function renderEditSkills() {
+    const container = document.getElementById('editSkillsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const list = _editableProfile.skill_proficiency || [];
+    list.forEach((sp, idx) => {
+        const row = document.createElement('div');
+        row.className = 'edit-row skill-row';
+        row.innerHTML = `
+            <input type="text" class="edit-skill-name" value="${escapeHtml(sp.skill || '')}" placeholder="Skill Name">
+            <input type="range" class="edit-skill-pct-slider" min="10" max="100" value="${sp.percentage || 80}">
+            <span class="edit-skill-pct-val">${sp.percentage || 80}%</span>
+            <button type="button" class="btn-delete-item" aria-label="Delete skill"><i class="fas fa-trash-alt"></i></button>
+        `;
+        
+        row.querySelector('.edit-skill-name').addEventListener('input', (e) => {
+            _editableProfile.skill_proficiency[idx].skill = e.target.value;
+            renderLivePreview();
+        });
+        
+        const slider = row.querySelector('.edit-skill-pct-slider');
+        const label = row.querySelector('.edit-skill-pct-val');
+        slider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            _editableProfile.skill_proficiency[idx].percentage = val;
+            label.textContent = val + '%';
+            renderLivePreview();
+        });
+        
+        row.querySelector('.btn-delete-item').addEventListener('click', () => {
+            _editableProfile.skill_proficiency.splice(idx, 1);
+            renderEditSkills();
+            renderLivePreview();
+        });
+        
+        container.appendChild(row);
+    });
+    
+    if (list.length === 0) {
+        container.innerHTML = '<span class="preview-empty">No skills listed. Click Add Skill to build list.</span>';
+    }
+}
+
+function renderEditExperience() {
+    const container = document.getElementById('editExpContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const list = _editableProfile.latest_3_experiences || [];
+    list.forEach((exp, idx) => {
+        const card = document.createElement('div');
+        card.className = 'edit-item-subcard';
+        
+        const respText = Array.isArray(exp.responsibilities) ? exp.responsibilities.join(' ') : exp.responsibilities || '';
+        const techsText = Array.isArray(exp.technologies) ? exp.technologies.join(', ') : exp.technologies || '';
+        
+        card.innerHTML = `
+            <div class="subcard-header">
+                <h4>Experience #${idx + 1}</h4>
+                <button type="button" class="btn-delete-item"><i class="fas fa-trash-alt"></i> Remove</button>
+            </div>
+            <div class="input-group-row">
+                <div class="input-field">
+                    <label>Company</label>
+                    <input type="text" class="edit-exp-company" value="${escapeHtml(exp.company || '')}">
+                </div>
+                <div class="input-field">
+                    <label>Role</label>
+                    <input type="text" class="edit-exp-role" value="${escapeHtml(exp.role || '')}">
+                </div>
+            </div>
+            <div class="input-group-row">
+                <div class="input-field">
+                    <label>Duration</label>
+                    <input type="text" class="edit-exp-duration" value="${escapeHtml(exp.duration || '')}">
+                </div>
+                <div class="input-field">
+                    <label>Tools & Techs (comma separated)</label>
+                    <input type="text" class="edit-exp-techs" value="${escapeHtml(techsText)}">
+                </div>
+            </div>
+            <div class="input-field full-width">
+                <label>Description / Responsibilities</label>
+                <textarea class="edit-exp-desc" rows="3">${escapeHtml(respText)}</textarea>
+            </div>
+        `;
+        
+        card.querySelector('.edit-exp-company').addEventListener('input', (e) => {
+            _editableProfile.latest_3_experiences[idx].company = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-exp-role').addEventListener('input', (e) => {
+            _editableProfile.latest_3_experiences[idx].role = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-exp-duration').addEventListener('input', (e) => {
+            _editableProfile.latest_3_experiences[idx].duration = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-exp-techs').addEventListener('input', (e) => {
+            const items = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
+            _editableProfile.latest_3_experiences[idx].technologies = items;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-exp-desc').addEventListener('input', (e) => {
+            _editableProfile.latest_3_experiences[idx].responsibilities = [e.target.value];
+            renderLivePreview();
+        });
+        card.querySelector('.btn-delete-item').addEventListener('click', () => {
+            _editableProfile.latest_3_experiences.splice(idx, 1);
+            renderEditExperience();
+            renderLivePreview();
+        });
+        
+        container.appendChild(card);
+    });
+    
+    if (list.length === 0) {
+        container.innerHTML = '<span class="preview-empty">No experience listed. Click Add Experience.</span>';
+    }
+}
+
+function renderEditProjects() {
+    const container = document.getElementById('editProjContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const list = _editableProfile.projects || [];
+    list.forEach((proj, idx) => {
+        let name = '';
+        let desc = '';
+        if (typeof proj === 'object') {
+            name = proj.name || proj.title || '';
+            desc = proj.description || '';
+        } else {
+            const idxColon = proj.indexOf(':');
+            if (idxColon > 0) {
+                name = proj.slice(0, idxColon).trim();
+                desc = proj.slice(idxColon + 1).trim();
+            } else {
+                name = proj;
+            }
+        }
+        
+        const card = document.createElement('div');
+        card.className = 'edit-item-subcard';
+        card.innerHTML = `
+            <div class="subcard-header">
+                <h4>Project #${idx + 1}</h4>
+                <button type="button" class="btn-delete-item"><i class="fas fa-trash-alt"></i> Remove</button>
+            </div>
+            <div class="input-field full-width">
+                <label>Project Name</label>
+                <input type="text" class="edit-proj-name" value="${escapeHtml(name)}">
+            </div>
+            <div class="input-field full-width">
+                <label>Project Description</label>
+                <textarea class="edit-proj-desc" rows="2">${escapeHtml(desc)}</textarea>
+            </div>
+        `;
+        
+        card.querySelector('.edit-proj-name').addEventListener('input', (e) => {
+            if (typeof _editableProfile.projects[idx] !== 'object') {
+                _editableProfile.projects[idx] = { name: '', description: '' };
+            }
+            _editableProfile.projects[idx].name = e.target.value;
+            renderLivePreview();
+        });
+        
+        card.querySelector('.edit-proj-desc').addEventListener('input', (e) => {
+            if (typeof _editableProfile.projects[idx] !== 'object') {
+                _editableProfile.projects[idx] = { name: '', description: '' };
+            }
+            _editableProfile.projects[idx].description = e.target.value;
+            renderLivePreview();
+        });
+        
+        card.querySelector('.btn-delete-item').addEventListener('click', () => {
+            _editableProfile.projects.splice(idx, 1);
+            renderEditProjects();
+            renderLivePreview();
+        });
+        
+        container.appendChild(card);
+    });
+    
+    if (list.length === 0) {
+        container.innerHTML = '<span class="preview-empty">No projects listed. Click Add Project.</span>';
+    }
+}
+
+function renderEditEducation() {
+    const container = document.getElementById('editEduContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const list = _editableProfile.education || [];
+    list.forEach((edu, idx) => {
+        const card = document.createElement('div');
+        card.className = 'edit-item-subcard';
+        card.innerHTML = `
+            <div class="subcard-header">
+                <h4>Education Entry #${idx + 1}</h4>
+                <button type="button" class="btn-delete-item"><i class="fas fa-trash-alt"></i> Remove</button>
+            </div>
+            <div class="input-group-row">
+                <div class="input-field">
+                    <label>Degree</label>
+                    <input type="text" class="edit-edu-degree" value="${escapeHtml(edu.degree || '')}">
+                </div>
+                <div class="input-field">
+                    <label>Institution</label>
+                    <input type="text" class="edit-edu-inst" value="${escapeHtml(edu.institution || '')}">
+                </div>
+            </div>
+            <div class="input-field">
+                <label>Year / Duration</label>
+                <input type="text" class="edit-edu-year" value="${escapeHtml(edu.year || '')}">
+            </div>
+        `;
+        
+        card.querySelector('.edit-edu-degree').addEventListener('input', (e) => {
+            _editableProfile.education[idx].degree = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-edu-inst').addEventListener('input', (e) => {
+            _editableProfile.education[idx].institution = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.edit-edu-year').addEventListener('input', (e) => {
+            _editableProfile.education[idx].year = e.target.value;
+            renderLivePreview();
+        });
+        card.querySelector('.btn-delete-item').addEventListener('click', () => {
+            _editableProfile.education.splice(idx, 1);
+            renderEditEducation();
+            renderLivePreview();
+        });
+        
+        container.appendChild(card);
+    });
+    
+    if (list.length === 0) {
+        container.innerHTML = '<span class="preview-empty">No education listed. Click Add Education.</span>';
+    }
+}
+
+function renderEditCertifications() {
+    const container = document.getElementById('editCertContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const list = _editableProfile.certifications || [];
+    list.forEach((cert, idx) => {
+        const row = document.createElement('div');
+        row.className = 'edit-row cert-row';
+        row.innerHTML = `
+            <input type="text" class="edit-cert-name" value="${escapeHtml(cert || '')}" placeholder="Certification Name / Details" style="flex:1; padding:8px 10px; font-size:13px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-page); color:var(--text-primary);">
+            <button type="button" class="btn-delete-item" aria-label="Delete certification"><i class="fas fa-trash-alt"></i></button>
+        `;
+        
+        row.querySelector('.edit-cert-name').addEventListener('input', (e) => {
+            _editableProfile.certifications[idx] = e.target.value;
+            renderLivePreview();
+        });
+        
+        row.querySelector('.btn-delete-item').addEventListener('click', () => {
+            _editableProfile.certifications.splice(idx, 1);
+            renderEditCertifications();
+            renderLivePreview();
+        });
+        
+        container.appendChild(row);
+    });
+    
+    if (list.length === 0) {
+        container.innerHTML = '<span class="preview-empty">No certifications listed. Click Add Certification.</span>';
+    }
+}
+
+function renderLivePreview() {
+    const previewContainer = document.getElementById('resumeReportPreview');
+    if (!previewContainer) return;
+
+    const data = _editableProfile;
+    if (!data) return;
+
+    // Name and simple details
+    const nameVal = document.getElementById('editName').value.trim() || data.name || 'Candidate Name';
+    const name = nameVal.toUpperCase();
+    
+    // Fit score details
+    const includeFitScore = document.getElementById('editIncludeFitScore')?.checked || false;
+    const fitScore = parseInt(document.getElementById('editFitScore').value, 10);
+    
+    let scoreColor = '#2ecc71';
+    if (fitScore < 60) scoreColor = '#e74c3c';
+    else if (fitScore < 80) scoreColor = '#f1c40f';
+
+    // Skills preview list
+    const skills = data.skill_proficiency || [];
+    let skillsHtml = '';
+    skills.slice(0, 12).forEach(sp => {
+        const skillName = sp.skill || '';
+        const pct = sp.percentage || 80;
+        skillsHtml += `
+            <div class="preview-skill-item">
+                <div class="preview-skill-header">
+                    <span class="preview-skill-name">${escapeHtml(skillName)}</span>
+                    <span class="preview-skill-pct">${pct}%</span>
+                </div>
+                <div class="preview-skill-bar-bg">
+                    <div class="preview-skill-bar-fill" style="width: ${pct}%"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Education preview list
+    const education = data.education || [];
+    let eduHtml = '';
+    education.slice(0, 4).forEach(edu => {
+        const degree = edu.degree || 'Degree';
+        const inst = edu.institution || 'Institution';
+        const year = edu.year || '';
+        eduHtml += `
+            <div class="preview-edu-item">
+                <div class="preview-edu-degree">${escapeHtml(degree)}</div>
+                <div class="preview-edu-inst">${escapeHtml(inst)} ${year ? `(${escapeHtml(year)})` : ''}</div>
+            </div>
+        `;
+    });
+
+    // Contact preview fields
+    const phone = document.getElementById('editPhone').value.trim();
+    const email = document.getElementById('editEmail').value.trim();
+    const location = document.getElementById('editLocation').value.trim();
+    const linkedin = document.getElementById('editLinkedIn').value.trim();
+
+    // Summary text
+    const summary = document.getElementById('editSummary').value.trim();
+
+    // Experience list
+    const experiences = data.latest_3_experiences || [];
+    let expHtml = '';
+    experiences.slice(0, 3).forEach(exp => {
+        const role = exp.role || 'Role';
+        const company = exp.company || 'Company';
+        const duration = exp.duration || 'Duration';
+        const respText = Array.isArray(exp.responsibilities) ? exp.responsibilities.join(' ') : exp.responsibilities || '';
+        
+        let techs = exp.technologies || [];
+        if (typeof techs === 'string') {
+            techs = techs.split(',').map(t => t.trim()).filter(Boolean);
+        }
+        const techsText = techs.slice(0, 4).join(' • ');
+
+        expHtml += `
+            <div class="preview-exp-item">
+                <div class="preview-exp-header">
+                    <div>
+                        <div class="preview-exp-role">${escapeHtml(role)}</div>
+                        <div class="preview-exp-company">${escapeHtml(company)}</div>
+                    </div>
+                    <div class="preview-exp-duration">${escapeHtml(duration)}</div>
+                </div>
+                <div class="preview-exp-desc">${escapeHtml(respText)}</div>
+                ${techsText ? `
+                <div class="preview-exp-tech">
+                    <span class="preview-tech-label">Tools & Techs:</span>
+                    <span class="preview-tech-list">${escapeHtml(techsText)}</span>
+                </div>` : ''}
+            </div>
+        `;
+    });
+
+    // Certifications preview
+    const certs = data.certifications || [];
+    let certsHtml = '';
+    certs.slice(0, 4).forEach(cert => {
+        if (!cert) return;
+        certsHtml += `
+            <div class="preview-bullet-item">
+                <span class="preview-bullet"></span>
+                <span class="preview-bullet-text">${escapeHtml(cert)}</span>
+            </div>
+        `;
+    });
+
+    // Projects preview
+    const projects = data.projects || [];
+    let projectsHtml = '';
+    projects.slice(0, 4).forEach(p => {
+        let pText = '';
+        if (typeof p === 'object') {
+            const pName = p.name || p.title || '';
+            const pDesc = p.description || '';
+            pText = pName ? `${pName}: ${pDesc}` : pDesc;
+        } else {
+            pText = p || '';
+        }
+        if (!pText) return;
+        projectsHtml += `
+            <div class="preview-bullet-item">
+                <span class="preview-bullet"></span>
+                <span class="preview-bullet-text">${escapeHtml(pText)}</span>
+            </div>
+        `;
+    });
+
+    // Avatar
+    let avatarHtml = '';
+    if (data.profile_image_base64) {
+        avatarHtml = `<img src="data:image/png;base64,${data.profile_image_base64}" alt="${escapeHtml(name)}" class="preview-avatar-image">`;
+    } else {
+        const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'C';
+        avatarHtml = `<div class="preview-avatar-initials">${initials}</div>`;
+    }
+
+    const customRole = document.getElementById('editTitle').value.trim() || 'Professional';
+
+    previewContainer.innerHTML = `
+        <div class="preview-header">
+            <div class="preview-avatar-container">
+                ${avatarHtml}
+            </div>
+            <div class="preview-header-text">
+                <div class="preview-name">${escapeHtml(name)}</div>
+                <div class="preview-title">${escapeHtml(customRole)}</div>
+            </div>
+            ${includeFitScore ? `
+            <div class="preview-fit-score-badge" style="background-color: ${scoreColor}">
+                <div class="preview-fit-val">${fitScore}</div>
+                <div class="preview-fit-lbl">/100</div>
+            </div>
+            ` : ''}
+        </div>
+        <div class="preview-body">
+            <div class="preview-col-left">
+                <div class="preview-section-title">
+                    <span class="preview-title-icon"><i class="fas fa-code"></i></span>
+                    TECHNICAL SKILLS
+                </div>
+                <div class="preview-skills-list">
+                    ${skillsHtml || '<div class="preview-empty">No skills listed</div>'}
+                </div>
+
+                <div class="preview-divider"></div>
+
+                <div class="preview-section-title">
+                    <span class="preview-title-icon"><i class="fas fa-graduation-cap"></i></span>
+                    EDUCATION
+                </div>
+                <div class="preview-edu-list">
+                    ${eduHtml || '<div class="preview-empty">No education listed</div>'}
+                </div>
+
+                <div class="preview-divider"></div>
+
+                <div class="preview-section-title">
+                    <span class="preview-title-icon"><i class="fas fa-address-book"></i></span>
+                    CONTACT
+                </div>
+                <div class="preview-contact-list">
+                    ${phone ? `
+                    <div class="preview-contact-item">
+                        <span class="preview-contact-icon"><i class="fas fa-phone-alt"></i></span>
+                        <div>
+                            <div class="preview-contact-lbl">Phone</div>
+                            <div class="preview-contact-val">${escapeHtml(phone)}</div>
+                        </div>
+                    </div>` : ''}
+                    ${location ? `
+                    <div class="preview-contact-item">
+                        <span class="preview-contact-icon"><i class="fas fa-map-marker-alt"></i></span>
+                        <div>
+                            <div class="preview-contact-lbl">Location</div>
+                            <div class="preview-contact-val">${escapeHtml(location)}</div>
+                        </div>
+                    </div>` : ''}
+                    ${email ? `
+                    <div class="preview-contact-item">
+                        <span class="preview-contact-icon"><i class="fas fa-envelope"></i></span>
+                        <div>
+                            <div class="preview-contact-lbl">Email</div>
+                            <div class="preview-contact-val">${escapeHtml(email)}</div>
+                        </div>
+                    </div>` : ''}
+                    ${linkedin ? `
+                    <div class="preview-contact-item">
+                        <span class="preview-contact-icon"><i class="fab fa-linkedin-in"></i></span>
+                        <div>
+                            <div class="preview-contact-lbl">LinkedIn</div>
+                            <div class="preview-contact-val">${escapeHtml(linkedin)}</div>
+                        </div>
+                    </div>` : ''}
+                </div>
+            </div>
+            <div class="preview-col-divider"></div>
+            <div class="preview-col-right">
+                <div class="preview-section-title">
+                    <span class="preview-title-icon"><i class="fas fa-user"></i></span>
+                    SUMMARY
+                </div>
+                <div class="preview-summary-text">
+                    ${escapeHtml(summary) || 'No summary available.'}
+                </div>
+
+                <div class="preview-section-title" style="margin-top: 20px;">
+                    <span class="preview-title-icon"><i class="fas fa-briefcase"></i></span>
+                    PROFESSIONAL EXPERIENCE
+                </div>
+                <div class="preview-exp-list">
+                    ${expHtml || '<div class="preview-empty">No experience listed</div>'}
+                </div>
+
+                ${certsHtml ? `
+                <div class="preview-section-title" style="margin-top: 20px;">
+                    <span class="preview-title-icon"><i class="fas fa-certificate"></i></span>
+                    CERTIFICATIONS
+                </div>
+                <div class="preview-certs-grid">
+                    ${certsHtml}
+                </div>` : ''}
+
+                ${projectsHtml ? `
+                <div class="preview-section-title" style="margin-top: 20px;">
+                    <span class="preview-title-icon"><i class="fas fa-trophy"></i></span>
+                    PROJECTS
+                </div>
+                <div class="preview-projects-grid">
+                    ${projectsHtml}
+                </div>` : ''}
+            </div>
+        </div>
+        <div class="preview-watermark">TALENTLENS AI REPORT</div>
+    `;
+}
+
+function setupLiveEditModal() {
+    const closeBtn = document.getElementById('liveEditCloseBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeLiveEditModal);
+    }
+    
+    const cancelBtn = document.getElementById('liveEditCancelBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeLiveEditModal);
+    }
+    
+    const saveBtn = document.getElementById('liveEditSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveLiveEditChanges);
+    }
+    
+    // Sliders & Simple Inputs event bindings
+    const nameInput = document.getElementById('editName');
+    if (nameInput) {
+        nameInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.name = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const titleInput = document.getElementById('editTitle');
+    if (titleInput) {
+        titleInput.addEventListener('input', (e) => {
+            if (_editableProfile) {
+                _editableProfile.custom_role = e.target.value;
+                _editableProfile.current_role = e.target.value;
+            }
+            renderLivePreview();
+        });
+    }
+    
+    const emailInput = document.getElementById('editEmail');
+    if (emailInput) {
+        emailInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.email = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const phoneInput = document.getElementById('editPhone');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.phone = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const locInput = document.getElementById('editLocation');
+    if (locInput) {
+        locInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.location = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const liInput = document.getElementById('editLinkedIn');
+    if (liInput) {
+        liInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.linkedin = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const summaryInput = document.getElementById('editSummary');
+    if (summaryInput) {
+        summaryInput.addEventListener('input', (e) => {
+            if (_editableProfile) _editableProfile.professional_summary = e.target.value;
+            renderLivePreview();
+        });
+    }
+    
+    const fitScoreSlider = document.getElementById('editFitScore');
+    const fitScoreVal = document.getElementById('editFitScoreVal');
+    if (fitScoreSlider) {
+        fitScoreSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (_editableProfile) _editableProfile.fit_score = val;
+            if (fitScoreVal) fitScoreVal.textContent = val + '%';
+            renderLivePreview();
+        });
+    }
+    
+    const fitScoreCheckbox = document.getElementById('editIncludeFitScore');
+    if (fitScoreCheckbox) {
+        fitScoreCheckbox.addEventListener('change', () => {
+            renderLivePreview();
+        });
+    }
+    
+    // Add Item click listeners
+    const addSkillBtn = document.getElementById('addEditSkillBtn');
+    if (addSkillBtn) {
+        addSkillBtn.addEventListener('click', () => {
+            if (!_editableProfile.skill_proficiency) _editableProfile.skill_proficiency = [];
+            _editableProfile.skill_proficiency.push({ skill: 'New Skill', percentage: 80 });
+            renderEditSkills();
+            renderLivePreview();
+        });
+    }
+    
+    const addExpBtn = document.getElementById('addEditExpBtn');
+    if (addExpBtn) {
+        addExpBtn.addEventListener('click', () => {
+            if (!_editableProfile.latest_3_experiences) _editableProfile.latest_3_experiences = [];
+            _editableProfile.latest_3_experiences.push({
+                role: 'Role Name',
+                company: 'Company Name',
+                duration: 'Duration',
+                responsibilities: ['Key responsibility description'],
+                technologies: []
+            });
+            renderEditExperience();
+            renderLivePreview();
+        });
+    }
+    
+    const addProjBtn = document.getElementById('addEditProjBtn');
+    if (addProjBtn) {
+        addProjBtn.addEventListener('click', () => {
+            if (!_editableProfile.projects) _editableProfile.projects = [];
+            _editableProfile.projects.push({ name: 'Project Name', description: 'Project Description' });
+            renderEditProjects();
+            renderLivePreview();
+        });
+    }
+    
+    const addEduBtn = document.getElementById('addEditEduBtn');
+    if (addEduBtn) {
+        addEduBtn.addEventListener('click', () => {
+            if (!_editableProfile.education) _editableProfile.education = [];
+            _editableProfile.education.push({ degree: 'Degree Name', institution: 'Institution', year: 'Year' });
+            renderEditEducation();
+            renderLivePreview();
+        });
+    }
+    
+    const addCertBtn = document.getElementById('addEditCertBtn');
+    if (addCertBtn) {
+        addCertBtn.addEventListener('click', () => {
+            if (!_editableProfile.certifications) _editableProfile.certifications = [];
+            _editableProfile.certifications.push('Certification Details');
+            renderEditCertifications();
+            renderLivePreview();
+        });
+    }
+}
+
+async function saveLiveEditChanges() {
+    if (!_editableProfile) return;
+    
+    // Save standard form field values back to state
+    _editableProfile.name = document.getElementById('editName').value.trim();
+    
+    const editedTitle = document.getElementById('editTitle').value.trim();
+    _editableProfile.custom_role = editedTitle;
+    _editableProfile.current_role = editedTitle;
+    
+    _editableProfile.email = document.getElementById('editEmail').value.trim();
+    _editableProfile.phone = document.getElementById('editPhone').value.trim();
+    _editableProfile.location = document.getElementById('editLocation').value.trim();
+    _editableProfile.linkedin = document.getElementById('editLinkedIn').value.trim();
+    _editableProfile.professional_summary = document.getElementById('editSummary').value.trim();
+    
+    const includeFitScore = document.getElementById('editIncludeFitScore').checked;
+    const fitScore = parseInt(document.getElementById('editFitScore').value, 10);
+    _editableProfile.fit_score = fitScore;
+    
+    // Synchronize experience and education raw lists for the backend GapAnalyzer
+    _editableProfile.education_raw = (_editableProfile.education || []).map(edu => {
+        return `${edu.degree || ''} at ${edu.institution || ''} ${edu.year || ''}`.trim();
+    }).filter(Boolean);
+    
+    _editableProfile.experience_raw = (_editableProfile.latest_3_experiences || []).map(exp => {
+        const respText = Array.isArray(exp.responsibilities) ? exp.responsibilities.join(' ') : exp.responsibilities || '';
+        return `${exp.role || ''} at ${exp.company || ''} ${exp.duration || ''} - ${respText}`.trim();
+    }).filter(Boolean);
+    
+    // Synchronize states of the original skills modal for visual consistency
+    const fitScoreCheckbox = document.getElementById('includeFitScoreCheckbox');
+    if (fitScoreCheckbox) fitScoreCheckbox.checked = includeFitScore;
+    
+    const bestRoleCheckbox = document.getElementById('includeBestSuitedRoleCheckbox');
+    if (bestRoleCheckbox) bestRoleCheckbox.checked = true;
+    
+    const customRoleInput = document.getElementById('customModalRoleInput');
+    if (customRoleInput) {
+        customRoleInput.value = editedTitle;
+        const wrapper = document.getElementById('customModalRoleWrapper');
+        if (wrapper) wrapper.style.display = 'block';
+    }
+    
+    // Save skill chips back to global selected array
+    _selectedSkills = JSON.parse(JSON.stringify(_editableProfile.skill_proficiency));
+    
+    // Close live edit overlay
+    document.getElementById('liveEditModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    // Trigger image generation
+    await triggerGenerateResumeFromEdit();
+}
+
+async function triggerGenerateResumeFromEdit() {
+    loadingOverlay.style.display = 'flex';
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const statusText = document.getElementById('analysisStatusText');
+    
+    if (progressFill) progressFill.style.width = '75%';
+    if (progressText) progressText.textContent = '75%';
+    if (statusText) statusText.textContent = 'Generating final report from custom edits...';
+
+    try {
+        const includeFitScore = document.getElementById('editIncludeFitScore')?.checked || false;
+        const editedTitle = document.getElementById('editTitle')?.value?.trim() || '';
+        const API_URL = getApiUrl();
+        
+        const response = await fetch(`${API_URL}/api/generate-from-edit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data: _editableProfile,
+                selected_skills: _editableProfile.skill_proficiency,
+                include_fit_score: includeFitScore,
+                include_best_suited_role: true,
+                job_role: selectedJobRole,
+                custom_role: editedTitle
+            })
+        });
+
+        const genData = await response.json();
+        loadingOverlay.style.display = 'none';
+
+        if (genData.success && genData.image_base64) {
+            const byteCharacters = atob(genData.image_base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray  = new Uint8Array(byteNumbers);
+            const imageBlob  = new Blob([byteArray], { type: 'image/png' });
+            const imageUrl   = URL.createObjectURL(imageBlob);
+
+            // Update globals
+            currentData             = _editableProfile;
+            _skillModalData         = _editableProfile;
+            currentImageUrl         = imageUrl;
+            currentImageBlob        = imageBlob;
+            currentPreviewImageUrl  = imageUrl;
+
+            // Rerender skills modal details just in case it is opened again
+            renderSkillModal();
+            
+            // Show preview modal
+            showPreview(imageUrl, imageBlob);
+            showNotification('Final resume report generated from custom edits', 'success');
+        } else {
+            throw new Error(genData.error || 'Image generation failed');
+        }
+    } catch (error) {
+        loadingOverlay.style.display = 'none';
+        showNotification(error.message || 'Error generating resume.', 'error');
+        console.error('Generate error:', error);
+    }
+}
+
+
 // Initialize
 initTheme();
 setupFileSelection();
@@ -2173,6 +3155,7 @@ setupRoleSelector();
 setupTooltips();
 setupSkillModal();
 setupOriginalResumePreview();
+setupLiveEditModal();
 
 // Store batch results globally
 let batchResults = [];
