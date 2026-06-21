@@ -1109,9 +1109,10 @@ body {
     padding: 0;
 }
 
-.score-header {
+.score-display {
     padding: 24px 20px 16px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 12px;
@@ -1147,15 +1148,14 @@ body {
     z-index: 1;
 }
 
-.score-label {
-    position: relative;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
+.score-max {
+    font-size: 11px;
+    font-weight: 500;
     color: var(--text-muted);
+    line-height: 1;
+    margin-top: 1px;
+    position: relative;
     z-index: 1;
-    margin-top: 2px;
 }
 
 .score-info {
@@ -1280,10 +1280,12 @@ body {
 .quality-card { padding: 0; }
 
 .quality-score-display {
-    padding: 20px;
+    padding: 24px 20px 16px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
+    gap: 12px;
 }
 
 .quality-circle {
@@ -3559,6 +3561,99 @@ body.results-open #themeToggleContainer {
 [data-theme="dark"] .custom-modal-role-wrapper input[type="text"]:focus {
     border-color: var(--gold);
     box-shadow: 0 0 0 2px rgba(198, 164, 63, 0.15);
+}
+
+/* ── Verdict Tooltips & Click Actions ────────────────────────── */
+.verdict-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.clickable-verdict {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 4px;
+    transition: opacity var(--transition);
+}
+
+.clickable-verdict:hover {
+    opacity: 0.8;
+}
+
+.verdict-wrapper.active .tooltip-content {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.verdict-tooltip h4 {
+    margin-bottom: 8px;
+}
+
+.tooltip-reason-text {
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.tooltip-reason-list {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 6px;
+}
+
+.tooltip-reason-list li {
+    font-size: 11px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--text-secondary);
+}
+
+.tooltip-reason-list li:last-child {
+    border-bottom: none;
+}
+
+.tooltip-reason-list li i {
+    color: var(--navy);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+[data-theme="dark"] .tooltip-reason-list li i {
+    color: var(--gold);
+}
+
+/* Ensure the card header info buttons have consistent styling and color changes */
+.card-header .score-info i {
+    color: var(--navy);
+    font-size: 15px;
+    opacity: 0.75;
+    transition: opacity var(--transition), color var(--transition);
+}
+
+[data-theme="dark"] .card-header .score-info i {
+    color: var(--gold);
+    opacity: 0.75;
+}
+
+.card-header .score-info:hover i,
+.card-header .score-info.active i {
+    opacity: 1;
+    color: var(--navy);
+}
+
+[data-theme="dark"] .card-header .score-info:hover i,
+[data-theme="dark"] .card-header .score-info.active i {
+    opacity: 1;
+    color: var(--gold-light);
+}
+
+/* Better visible blue for Good Potential in dark mode */
+[data-theme="dark"] .status-good {
+    color: #60a5fa;
 }
 
 

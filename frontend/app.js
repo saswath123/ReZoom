@@ -988,19 +988,42 @@ function displayResults(data) {
         const roleLabel = document.createElement('div');
         roleLabel.className = 'score-role-label';
         roleLabel.innerHTML = `<i class="fas fa-crosshairs"></i> ${jobRole}`;
-        scoreCard.insertBefore(roleLabel, scoreCard.firstChild);
+        const header = scoreCard.querySelector('.card-header');
+        if (header) {
+            header.after(roleLabel);
+        } else {
+            scoreCard.insertBefore(roleLabel, scoreCard.firstChild);
+        }
     }
     
     const scoreStatus = document.getElementById('scoreStatus');
-    if (fitScore >= 80) {
-        scoreStatus.textContent = 'Excellent Match';
-        scoreStatus.className = 'score-status status-excellent';
-    } else if (fitScore >= 60) {
-        scoreStatus.textContent = 'Good Potential';
-        scoreStatus.className = 'score-status status-good';
-    } else {
-        scoreStatus.textContent = 'Room for Growth';
-        scoreStatus.className = 'score-status status-low';
+    if (scoreStatus) {
+        if (fitScore >= 80) {
+            scoreStatus.textContent = 'Excellent Match';
+            scoreStatus.className = 'score-status clickable-verdict status-excellent';
+        } else if (fitScore >= 60) {
+            scoreStatus.textContent = 'Good Potential';
+            scoreStatus.className = 'score-status clickable-verdict status-good';
+        } else {
+            scoreStatus.textContent = 'Room for Growth';
+            scoreStatus.className = 'score-status clickable-verdict status-low';
+        }
+    }
+
+    const fitScoreReasonText = document.getElementById('fitScoreReasonText');
+    if (fitScoreReasonText) {
+        const recommendationReason = resumeData.recommendation_reason || '';
+        if (recommendationReason) {
+            fitScoreReasonText.textContent = recommendationReason;
+        } else {
+            if (fitScore >= 80) {
+                fitScoreReasonText.textContent = "The candidate represents an excellent match for this position based on key strengths, relevant experience, and role alignment.";
+            } else if (fitScore >= 60) {
+                fitScoreReasonText.textContent = "The candidate has good potential for this position, with solid foundation skills though there are minor areas of growth or alignment gaps.";
+            } else {
+                fitScoreReasonText.textContent = "The candidate requires significant skill development, certifications, or additional work experience to be fully suited for this position.";
+            }
+        }
     }
     
     document.getElementById('strengthCount').textContent = (resumeData.strengths || []).length;
@@ -1161,7 +1184,24 @@ function displayResults(data) {
         
         if (qualityVerdict) {
             qualityVerdict.textContent = qualityVerdictText;
-            qualityVerdict.className = `quality-verdict ${qualityVerdictText.toLowerCase().replace(' ', '-')}`;
+            qualityVerdict.className = `quality-verdict clickable-verdict ${qualityVerdictText.toLowerCase().replace(' ', '-')}`;
+        }
+        
+        const qualityVerdictReasonList = document.getElementById('qualityVerdictReasonList');
+        if (qualityVerdictReasonList) {
+            const observations = resumeData.quality_observations || [];
+            qualityVerdictReasonList.innerHTML = '';
+            if (observations.length > 0) {
+                observations.forEach(obs => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<i class="fas fa-info-circle"></i> ${obs}`;
+                    qualityVerdictReasonList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fas fa-check-circle"></i> No quality concerns detected. The resume structure is professional.`;
+                qualityVerdictReasonList.appendChild(li);
+            }
         }
         
         if (qualityCircle) {
@@ -1829,26 +1869,31 @@ if (closeBatchResultsBtn) {
 }
 
 function setupTooltips() {
-    const infoButtons = document.querySelectorAll('.score-info');
-    infoButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            if (e.target.closest('.tooltip-content')) {
-                return;
-            }
-            e.stopPropagation();
-            infoButtons.forEach(otherBtn => {
-                if (otherBtn !== btn) {
-                    otherBtn.classList.remove('active');
+    const tooltipContainers = document.querySelectorAll('.score-info, .verdict-wrapper');
+    tooltipContainers.forEach(container => {
+        const trigger = container.classList.contains('score-info') ? container : container.querySelector('.clickable-verdict');
+        
+        if (trigger) {
+            trigger.addEventListener('click', (e) => {
+                if (e.target.closest('.tooltip-content')) {
+                    return;
                 }
+                e.stopPropagation();
+                
+                tooltipContainers.forEach(otherContainer => {
+                    if (otherContainer !== container) {
+                        otherContainer.classList.remove('active');
+                    }
+                });
+                container.classList.toggle('active');
             });
-            btn.classList.toggle('active');
-        });
+        }
     });
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.score-info')) {
-            infoButtons.forEach(btn => {
-                btn.classList.remove('active');
+        if (!e.target.closest('.score-info, .verdict-wrapper')) {
+            tooltipContainers.forEach(container => {
+                container.classList.remove('active');
             });
         }
     });
