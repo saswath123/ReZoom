@@ -461,6 +461,7 @@ def analyze_resume_step():
             "success": True,
             "message": "Resume analyzed successfully",
             "data": structured_data,
+            "extracted_text": extracted_text,
             "recommended_skills": top7,
             "all_skills": skill_proficiency,
             "fit_score": structured_data.get("fit_score"),
@@ -474,6 +475,49 @@ def analyze_resume_step():
         print(f"ERROR in /api/analyze: {e}")
         print(traceback.format_exc())
         return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
+
+@app.route("/api/recalculate-fit", methods=["POST"])
+def recalculate_fit_score():
+    try:
+        body = request.get_json(force=True) or {}
+        structured_data = body.get("structured_data", {})
+        job_role = body.get("job_role", "")
+        extracted_text = body.get("extracted_text", "")
+        job_description = body.get("job_description", "")
+
+        if not job_role:
+            return jsonify({"error": "Job role is required."}), 400
+
+        role_requirements = get_role_requirements(job_role)
+        if not isinstance(role_requirements, dict):
+            role_requirements = {}
+
+        if job_description:
+            jd_data = extract_skills_from_jd(job_description)
+            if jd_data and isinstance(jd_data, dict):
+                for field in ["required_skills", "preferred_skills", "certifications", "keywords"]:
+                    if jd_data.get(field):
+                        extracted_list = ensure_list_of_strings(jd_data[field])
+                        role_requirements[field] = list(set(
+                            ensure_list_of_strings(role_requirements.get(field, [])) + extracted_list
+                        ))
+                if jd_data.get("min_experience_years"):
+                    role_requirements["min_experience_years"] = jd_data["min_experience_years"]
+
+        fit_score = calculate_role_fit_score(structured_data, role_requirements, extracted_text)
+        skill_gap = build_skill_gap_report(structured_data, role_requirements, extracted_text)
+
+        return jsonify({
+            "success": True,
+            "fit_score": fit_score,
+            "skill_gap": skill_gap
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR in /api/recalculate-fit: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Recalculation failed: {str(e)}"}), 500
 
 
 @app.route("/api/generate", methods=["POST"])
@@ -530,6 +574,87 @@ def generate_resume_step():
         print(f"ERROR in /api/generate: {e}")
         print(traceback.format_exc())
         return jsonify({"error": f"Image generation failed: {str(e)}"}), 500
+
+
+@app.route("/api/generate-from-edit", methods=["POST"])
+def generate_from_edit():
+    """Generate final PNG resume from customized Live Edit JSON data.
+    Recalculates gap analysis and generates report image without LLM calls.
+    """
+    try:
+        body = request.get_json(force=True)
+        if not body:
+            return jsonify({"error": "JSON body required"}), 400
+
+        structured_data = body.get("data") or {}
+        if not structured_data:
+            return jsonify({"error": "No resume data provided"}), 400
+
+        # Sync fit score and role options from request body
+        structured_data["include_fit_score"] = body.get("include_fit_score", False)
+        structured_data["include_best_suited_role"] = body.get("include_best_suited_role", True)
+        if body.get("custom_role"):
+            structured_data["custom_role"] = body.get("custom_role")
+            structured_data["current_role"] = body.get("custom_role")
+
+        # Overwrite skill_proficiency list with what's provided
+        if body.get("selected_skills"):
+            structured_data["skill_proficiency"] = body.get("selected_skills")[:12]
+
+        # Recalculate raw strings for GapAnalyzer using edited lists
+        education_raw = []
+        for edu in structured_data.get("education", []):
+            if isinstance(edu, dict):
+                degree = edu.get("degree", "")
+                inst = edu.get("institution", "")
+                year = edu.get("year", "")
+                education_raw.append(f"{degree} at {inst} {year}".strip())
+            elif isinstance(edu, str):
+                education_raw.append(edu)
+                
+        experience_raw = []
+        for exp in structured_data.get("latest_3_experiences", []):
+            if isinstance(exp, dict):
+                role = exp.get("role", "")
+                company = exp.get("company", "")
+                duration = exp.get("duration", "")
+                resp = exp.get("responsibilities", [])
+                resp_text = " ".join(resp) if isinstance(resp, list) else str(resp)
+                experience_raw.append(f"{role} at {company} {duration} - {resp_text}".strip())
+            elif isinstance(exp, str):
+                experience_raw.append(exp)
+
+        structured_data["education_raw"] = education_raw
+        structured_data["experience_raw"] = experience_raw
+
+        # Run GapAnalyzer on the newly reconstructed lists
+        gap_analyzer = GapAnalyzer()
+        gap_analysis = gap_analyzer.analyze_complete_gaps(education_raw, experience_raw)
+
+        unique_id = str(uuid.uuid4())[:8]
+        png_filename = f"Resume_{structured_data.get('name', 'Candidate')}_{unique_id}.png"
+        png_path = generate_resume_image(
+            structured_data, gap_analysis, os.path.join(OUTPUT_FOLDER, png_filename)
+        )
+
+        with open(png_path, "rb") as f:
+            png_bytes = f.read()
+        image_base64 = base64.b64encode(png_bytes).decode("utf-8")
+
+        try:
+            os.remove(png_path)
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "image_base64": image_base64,
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR in /api/generate-from-edit: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Image generation from edit failed: {str(e)}"}), 500
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -701,6 +826,7 @@ def upload_resume():
             "success": True,
             "message": "Resume processed successfully",
             "data": structured_data,
+            "extracted_text": extracted_text,
             "image_base64": image_base64,
             "fit_score": structured_data.get("fit_score"),
             "job_role": job_role if job_role else None,

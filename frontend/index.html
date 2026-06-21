@@ -296,31 +296,65 @@
 
                         <!-- Fit Score Card with Tooltip -->
                         <div class="score-card" id="scoreCard">
-                            <div class="score-header">
-                                <div class="score-circle" id="scoreCircle">
-                                    <div class="score-value">0</div>
-                                    <div class="score-label">Fit Score</div>
-                                </div>
+                            <div class="card-header">
+                                <i class="fas fa-crosshairs"></i>
+                                <h4>Fit Score</h4>
                                 <div class="score-info" id="fitScoreInfo">
                                     <i class="fas fa-info-circle"></i>
                                     <div class="tooltip-content">
                                         <h4><i class="fas fa-chart-line"></i> How Fit Score is Calculated</h4>
                                         <ul>
-                                            <li><strong>Skills Match (40%)</strong> - Relevant technical skills match
-                                            </li>
+                                            <li><strong>Skills Match (40%)</strong> - Relevant technical skills match</li>
                                             <li><strong>Experience (30%)</strong> - Years of relevant experience</li>
                                             <li><strong>Role Alignment (20%)</strong> - Seniority level match</li>
                                             <li><strong>Achievements (10%)</strong> - Quantifiable results</li>
                                         </ul>
-                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Not affected by
-                                            email, phone, or formatting</p>
+                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Not affected by email, phone, or formatting</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="score-status" id="scoreStatus"></div>
+                            <div class="score-display">
+                                <div class="score-circle" id="scoreCircle">
+                                    <span class="score-value" id="scoreValue">0</span>
+                                    <span class="score-max">/100</span>
+                                </div>
+                                <div class="verdict-wrapper" id="fitVerdictWrapper">
+                                    <span class="score-status clickable-verdict" id="scoreStatus" role="button" tabindex="0"></span>
+                                    <div class="tooltip-content verdict-tooltip" id="fitStatusTooltip">
+                                        <h4><i class="fas fa-crosshairs"></i> Fit Score Analysis</h4>
+                                        <p class="tooltip-reason-text" id="fitScoreReasonText"></p>
+                                    </div>
+                                </div>
+                                <div class="card-role-selector-wrapper">
+                                    <label for="cardJobRoleSelect">Target Job Role</label>
+                                    <select id="cardJobRoleSelect" class="card-role-dropdown">
+                                        <!-- populated dynamically -->
+                                    </select>
+                                    
+                                    <!-- Conditional Custom Role Input -->
+                                    <div class="card-custom-role-wrapper" id="cardCustomRoleWrapper" style="display: none;">
+                                        <input type="text" id="cardCustomRoleInput" class="card-role-input" placeholder="Specify custom role...">
+                                    </div>
+                                    
+                                    <!-- Collapsible Job Description Container -->
+                                    <div class="card-jd-toggle-wrapper">
+                                        <button type="button" class="card-jd-toggle-btn" id="cardJdToggleBtn">
+                                            <i class="fas fa-plus"></i> Add Job Description
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="card-jd-textarea-wrapper" id="cardJdTextareaWrapper" style="display: none;">
+                                        <textarea id="cardJdTextarea" class="card-jd-textarea" placeholder="Paste job description here to match skills..."></textarea>
+                                    </div>
+
+                                    <!-- Recalculate Button -->
+                                    <button type="button" id="cardCheckFitBtn" class="card-check-fit-btn">
+                                        <i class="fas fa-sync-alt"></i> Calculate Fit Score
+                                    </button>
+                                </div>
+                            </div>
                             <div class="score-details">
-                                <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths
-                                </p>
+                                <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths</p>
                                 <p><i class="fas fa-chart-line"></i> <span id="expYears">0</span>+ Years Experience</p>
                             </div>
                         </div>
@@ -335,16 +369,13 @@
                                     <div class="tooltip-content">
                                         <h4><i class="fas fa-shield-alt"></i> How Quality Score is Calculated</h4>
                                         <ul>
-                                            <li><strong>Professional Language</strong> - No desperate/unprofessional
-                                                tone</li>
+                                            <li><strong>Professional Language</strong> - No desperate/unprofessional tone</li>
                                             <li><strong>Complete Contact Info</strong> - Email and phone present</li>
-                                            <li><strong>Proper Dates</strong> - Years mentioned for experience/education
-                                            </li>
+                                            <li><strong>Proper Dates</strong> - Years mentioned for experience/education</li>
                                             <li><strong>Relevant Skills</strong> - Professional skills only</li>
                                             <li><strong>Work Experience</strong> - Valid experience documented</li>
                                         </ul>
-                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Does NOT affect job
-                                            fit score</p>
+                                        <p class="tooltip-note"><i class="fas fa-info-circle"></i> Does NOT affect job fit score</p>
                                     </div>
                                 </div>
                             </div>
@@ -353,7 +384,13 @@
                                     <span class="quality-value" id="qualityValue">0</span>
                                     <span class="quality-max">/100</span>
                                 </div>
-                                <div class="quality-verdict" id="qualityVerdict"></div>
+                                <div class="verdict-wrapper" id="qualityVerdictWrapper">
+                                    <span class="quality-verdict clickable-verdict" id="qualityVerdict" role="button" tabindex="0"></span>
+                                    <div class="tooltip-content verdict-tooltip" id="qualityVerdictTooltip">
+                                        <h4><i class="fas fa-shield-alt"></i> Quality Verdict Analysis</h4>
+                                        <ul class="tooltip-reason-list" id="qualityVerdictReasonList"></ul>
+                                    </div>
+                                </div>
                             </div>
                             <div class="quality-observations" id="qualityObservations"></div>
                         </div>
@@ -617,9 +654,6 @@
                 </div>
             </div>
             <div class="preview-modal-footer">
-                <button class="btn-secondary" id="previewCancelBtn">
-                    <i class="fas fa-times"></i> Close
-                </button>
                 <button class="btn-secondary" id="previewEditSkillsBtn">
                     <i class="fas fa-sliders-h"></i> Customize Skills
                 </button>
@@ -765,9 +799,216 @@
                 <button class="skill-btn-skip" id="skillSkipBtn">
                     <i class="fas fa-forward"></i> Skip — use AI selection
                 </button>
+                <button class="skill-btn-edit" id="skillEditBtn">
+                    <i class="fas fa-edit"></i> Live Edit
+                </button>
                 <button class="skill-btn-generate" id="skillGenerateBtn" disabled>
                     <i class="fas fa-magic"></i> Generate Resume
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         LIVE EDIT MODAL (Canva-Style Fullscreen Editor)
+    ══════════════════════════════════════════════════ -->
+    <div class="live-edit-modal-overlay" id="liveEditModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="liveEditModalTitle">
+        <div class="live-edit-container">
+            <!-- Left Panel: Edit Controls -->
+            <div class="live-edit-controls-panel">
+                <div class="live-edit-panel-header">
+                    <div class="live-edit-title-group">
+                        <h2 id="liveEditModalTitle"><i class="fas fa-edit"></i> Live Edit Mode</h2>
+                        <p>Customize report details in real-time</p>
+                    </div>
+                </div>
+                
+                <!-- Tabs Navigation -->
+                <div class="live-edit-tabs">
+                    <button class="edit-tab-btn active" data-tab="profile">
+                        <i class="fas fa-user-tie"></i> Profile
+                    </button>
+                    <button class="edit-tab-btn" data-tab="skills">
+                        <i class="fas fa-laptop-code"></i> Skills
+                    </button>
+                    <button class="edit-tab-btn" data-tab="experience">
+                        <i class="fas fa-briefcase"></i> Experience
+                    </button>
+                    <button class="edit-tab-btn" data-tab="projects">
+                        <i class="fas fa-project-diagram"></i> Projects
+                    </button>
+                    <button class="edit-tab-btn" data-tab="edu-certs">
+                        <i class="fas fa-graduation-cap"></i> Edu & Certs
+                    </button>
+                </div>
+                
+                <div class="live-edit-sections-wrapper">
+                    <!-- Card 1: Profile & Settings -->
+                    <div class="edit-section-card active" data-tab-content="profile">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-user-tie"></i> Candidate Profile & Settings</h3>
+                        </div>
+                        <div class="edit-section-body">
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editName">Full Name</label>
+                                    <input type="text" id="editName">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editTitle">Professional Title</label>
+                                    <input type="text" id="editTitle">
+                                </div>
+                            </div>
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editEmail">Email</label>
+                                    <input type="email" id="editEmail">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editPhone">Phone</label>
+                                    <input type="text" id="editPhone">
+                                </div>
+                            </div>
+                            <div class="input-group-row">
+                                <div class="input-field">
+                                    <label for="editLocation">Location</label>
+                                    <input type="text" id="editLocation">
+                                </div>
+                                <div class="input-field">
+                                    <label for="editLinkedIn">LinkedIn</label>
+                                    <input type="text" id="editLinkedIn">
+                                </div>
+                            </div>
+                            <div class="input-field full-width">
+                                <label for="editSummary">Professional Summary</label>
+                                <textarea id="editSummary" rows="4"></textarea>
+                            </div>
+                            <div class="edit-section-subheader" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <h4>Report Settings (Fit Score)</h4>
+                                <span class="ai-score-note" id="aiScoreNote" style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Original AI Fit Score: 85%</span>
+                            </div>
+                            <div class="input-group-row align-center">
+                                <div class="input-field" style="flex: 2;">
+                                    <label for="editFitScore">Fit Score Percentage</label>
+                                    <div class="range-slider-wrapper">
+                                        <input type="range" id="editFitScore" min="0" max="100" value="85">
+                                        <span class="range-val" id="editFitScoreVal">85%</span>
+                                    </div>
+                                </div>
+                                <div class="checkbox-field" style="flex: 1; padding-top: 18px;">
+                                    <label class="custom-checkbox-container">
+                                        <input type="checkbox" id="editIncludeFitScore">
+                                        <span class="checkmark"></span>
+                                        Show Fit Score
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 2: Technical Skills -->
+                    <div class="edit-section-card" data-tab-content="skills">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-laptop-code"></i> Technical Skills</h3>
+                            <button type="button" class="btn-add-item" id="addEditSkillBtn"><i class="fas fa-plus"></i> Add Skill</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editSkillsContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 3: Professional Experience -->
+                    <div class="edit-section-card" data-tab-content="experience">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-briefcase"></i> Professional Experience</h3>
+                            <button type="button" class="btn-add-item" id="addEditExpBtn"><i class="fas fa-plus"></i> Add Experience</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editExpContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 4: Projects -->
+                    <div class="edit-section-card" data-tab-content="projects">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-project-diagram"></i> Projects</h3>
+                            <button type="button" class="btn-add-item" id="addEditProjBtn"><i class="fas fa-plus"></i> Add Project</button>
+                        </div>
+                        <div class="edit-section-body">
+                            <div id="editProjContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card 5: Education & Certifications -->
+                    <div class="edit-section-card" data-tab-content="edu-certs">
+                        <div class="edit-section-header">
+                            <h3><i class="fas fa-graduation-cap"></i> Education & Certs</h3>
+                        </div>
+                        <div class="edit-section-body">
+                            <div class="edit-section-subheader">
+                                <h4>Education</h4>
+                                <button type="button" class="btn-add-item" id="addEditEduBtn"><i class="fas fa-plus"></i> Add Education</button>
+                            </div>
+                            <div id="editEduContainer" class="dynamic-list-container" style="margin-bottom: 20px;">
+                                <!-- Filled by JS -->
+                            </div>
+                            
+                            <div class="edit-section-subheader">
+                                <h4>Certifications</h4>
+                                <button type="button" class="btn-add-item" id="addEditCertBtn"><i class="fas fa-plus"></i> Add Certification</button>
+                            </div>
+                            <div id="editCertContainer" class="dynamic-list-container">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="live-edit-panel-footer">
+                    <button class="btn-secondary" id="liveEditPreviewInputBtn" style="margin-right: auto;">
+                        <i class="fas fa-eye"></i> Preview Input Resume
+                    </button>
+                    <button class="btn-primary" id="liveEditSaveBtn"><i class="fas fa-check"></i> Generate Final Report</button>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Live Preview -->
+            <div class="live-edit-preview-panel">
+                <div class="preview-panel-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <button class="preview-header-btn" id="liveEditPreviewOutputBtn">
+                        <i class="fas fa-eye"></i> Live Report Preview
+                    </button>
+                    <div class="live-edit-header-actions" style="display: flex; align-items: center; gap: 16px;">
+                        <!-- Theme Toggle Switch in Live Edit -->
+                        <div class="live-edit-theme-toggle-container">
+                            <label for="themeToggleLiveEditCheckbox" class="toggle">
+                                <input type="checkbox" class="input" id="themeToggleLiveEditCheckbox" />
+                                <div class="icon icon--moon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                        <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="icon icon--sun">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                                        <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                        </div>
+                        <button class="live-edit-close-btn" id="liveEditCloseBtn" aria-label="Close editor">&times;</button>
+                    </div>
+                </div>
+                <div class="preview-scroll-container">
+                    <div class="resume-report-preview" id="resumeReportPreview">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
