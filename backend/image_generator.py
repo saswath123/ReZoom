@@ -996,43 +996,53 @@ def generate_professional_resume_template(data, gap_analysis, output_path):
             
         y_right += 15
         
-    # ACHIEVEMENTS SECTION
-    achievements = data.get('achievements') or data.get('strengths') or []
-    achievements = [a for a in achievements if a]
-    
-    if not achievements:
-        fallback_role = safe_str(data.get('current_role') or data.get('job_role') or 'Software Engineer')
-        achievements = [
-            f"Successfully built and deployed {fallback_role} solutions, improving efficiency by 20%.",
-            "Recognized by leadership for outstanding contribution and team collaboration."
-        ]
+    # PROJECTS SECTION
+    projects_raw = data.get('projects') or []
+    projects = []
+    if isinstance(projects_raw, list):
+        for p in projects_raw:
+            if isinstance(p, dict):
+                p_name = p.get('name') or p.get('title') or ''
+                p_desc = p.get('description') or ''
+                if p_name and p_desc:
+                    projects.append(f"{p_name}: {p_desc}")
+                elif p_name:
+                    projects.append(p_name)
+                elif p_desc:
+                    projects.append(p_desc)
+            elif isinstance(p, str) and p.strip():
+                projects.append(p.strip())
+                
+    projects = [p for p in projects if p]
+    if not projects:
+        projects = ["No Projects Listed"]
         
-    if achievements and y_right < 1080:
-        y_right = draw_section_title(draw, right_x, y_right, "ACHIEVEMENTS", "trophy")
+    if y_right < 1080:
+        y_right = draw_section_title(draw, right_x, y_right, "PROJECTS", "trophy")
         y_right += 5
         
         col_width = (right_width - 40) // 2
         col1_x = right_x + 20
         col2_x = right_x + right_width // 2 + 10
         
-        for i in range(0, len(achievements[:4]), 2):
-            ach1 = safe_str(achievements[i])
-            if len(ach1) > 55:
-                ach1 = ach1[:52] + "..."
+        for i in range(0, len(projects[:4]), 2):
+            proj1 = safe_str(projects[i])
+            if len(proj1) > 55:
+                proj1 = proj1[:52] + "..."
             
-            ach2 = None
-            if i + 1 < len(achievements[:4]):
-                ach2 = safe_str(achievements[i+1])
-                if len(ach2) > 55:
-                    ach2 = ach2[:52] + "..."
+            proj2 = None
+            if i + 1 < len(projects[:4]):
+                proj2 = safe_str(projects[i+1])
+                if len(proj2) > 55:
+                    proj2 = proj2[:52] + "..."
             
             draw.ellipse([col1_x, y_right + 6, col1_x + 6, y_right + 12], fill=COLOR_PRIMARY_BLUE)
-            y_col1 = add_text_box(draw, col1_x + 15, y_right, col_width - 15, 20, ach1, font_size=17, color=COLOR_TEXT_CHARCOAL)
+            y_col1 = add_text_box(draw, col1_x + 15, y_right, col_width - 15, 20, proj1, font_size=17, color=COLOR_TEXT_CHARCOAL)
             
             y_col2 = y_right
-            if ach2:
+            if proj2:
                 draw.ellipse([col2_x, y_right + 6, col2_x + 6, y_right + 12], fill=COLOR_PRIMARY_BLUE)
-                y_col2 = add_text_box(draw, col2_x + 15, y_right, col_width - 15, 20, ach2, font_size=17, color=COLOR_TEXT_CHARCOAL)
+                y_col2 = add_text_box(draw, col2_x + 15, y_right, col_width - 15, 20, proj2, font_size=17, color=COLOR_TEXT_CHARCOAL)
             
             y_right = max(y_col1, y_col2) + 6
             

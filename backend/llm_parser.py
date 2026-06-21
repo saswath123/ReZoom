@@ -67,16 +67,31 @@ UNPROFESSIONAL_KEYWORDS: dict[str, int] = {
     "tiktok": 25,
     "pubg": 25,
     "facebook": 20,
+    "freefire": 25,
+    "netflix": 20,
+    "chicken dinner": 30,
 }
 
-MAX_CHARS: int = 20000       # hard cap before smart-truncation
-PROMPT_CHARS: int = 12000    # chars forwarded to the LLM prompt
+MAX_CHARS: int = 16000       # hard cap before smart-truncation
+PROMPT_CHARS: int = 16000    # chars forwarded to the LLM prompt
 LLM_MODEL: str = "llama-3.1-8b-instant"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+def compress_resume_text(text: str) -> str:
+    """Compress whitespaces and clean headers/footers to save prompt tokens"""
+    if not text:
+        return ""
+    text = text.replace('\r', '')
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    text = re.sub(r'(?i)\bpage\s+\d+\s+(?:of|/)\s+\d+\b', '', text)
+    text = re.sub(r'(?i)\bpage\s+\d+\b', '', text)
+    return text.strip()
+
+
 def _smart_truncate(text: str, max_chars: int) -> str:
     """
     Preserve the most important resume sections (Skills, Experience,
@@ -108,7 +123,8 @@ def _smart_truncate(text: str, max_chars: int) -> str:
     for line in lines:
         line_lower = line.lower().strip()
         for pattern in section_headers:
-            if re.match(pattern, line_lower) and len(line_lower) < 60:
+            # Use re.search to match headers prefixed with bullets/numbers
+            if re.search(pattern, line_lower) and len(line_lower) < 60:
                 current_section = line_lower[:30]
                 section_blocks.setdefault(current_section, [])
                 break
@@ -142,30 +158,44 @@ def _smart_truncate(text: str, max_chars: int) -> str:
 
 def _unprofessional_score(text: str) -> int:
     text_lower = text.lower()
-    return sum(
-        penalty
-        for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items()
-        if keyword in text_lower
-    )
+    score = 0
+    for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items():
+        if keyword in ['whatsapp', 'facebook', 'instagram', 'youtube']:
+            # Ignore if it looks like a URL or email address
+            url_pattern = rf"https?://[^\s]*{keyword}|{keyword}\.com|@[^\s]*{keyword}"
+            if re.search(url_pattern, text_lower):
+                continue
+        pattern = rf"\b{re.escape(keyword)}\b"
+        if re.search(pattern, text_lower):
+            score += penalty
+    return score
 
 
 # ---------------------------------------------------------------------------
 # Main public API
 # ---------------------------------------------------------------------------
 def analyze_resume(resume_text):  # type: (str) -> dict
-    """Parse a resume with the Groq LLM and return structured data."""
+    """Parse a resume with the Groq LLM and return structured data with retry fallback."""
     if not resume_text or len(resume_text.strip()) < 50:
         return generate_fallback_data(resume_text)
+
+    # Pre-compress the text
+    resume_text = compress_resume_text(resume_text)
 
     if _unprofessional_score(resume_text) > 50:
         return generate_fallback_data(resume_text, is_worst=True)
 
-    resume_truncated = False
-    if len(resume_text) > MAX_CHARS:
-        resume_text = _smart_truncate(resume_text, MAX_CHARS)
-        resume_truncated = True
+    # Attempt to call LLM using different character budgets in sequence
+    attempt_limits = [PROMPT_CHARS, 10000]
+    
+    for attempt, limit in enumerate(attempt_limits, 1):
+        resume_truncated = False
+        text_to_send = resume_text
+        if len(text_to_send) > limit:
+            text_to_send = _smart_truncate(text_to_send, limit)
+            resume_truncated = True
 
-    prompt = f"""Analyze this resume and return ONLY valid JSON.
+        prompt = f"""Analyze this resume and return ONLY valid JSON.
 
 Extract the following information carefully:
 
@@ -177,7 +207,7 @@ Extract the following information carefully:
     "email": "email address",
     "phone": "phone number",
     "linkedin": "LinkedIn URL or empty string",
-    "professional_summary": "2-3 sentence summary",
+    "professional_summary": "2-3 sentence summary (max 30 words)",
     "skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5"],
     "skill_proficiency": [
         {{
@@ -198,31 +228,31 @@ Extract the following information carefully:
             "company": "Company name",
             "role": "Job title",
             "duration": "2020-2024 or 2022-Present",
-            "responsibilities": ["Achievement 1", "Achievement 2"],
-            "technologies": ["Tech1", "Tech2", "Tech3", "Tech4"]
+            "responsibilities": ["Concise contribution 1 (max 15 words)", "Concise contribution 2 (max 15 words)"],
+            "technologies": ["Tech1", "Tech2"]
         }}
     ],
     "projects": [
         {{
             "name": "Project Name",
-            "description": "Brief description (1-2 lines)",
+            "description": "Brief description (max 15 words)",
             "technologies": ["Tech1", "Tech2"],
-            "duration": "Duration/Date (if available, e.g. Jan 2023 - Mar 2023, or 3 months)",
+            "duration": "Duration/Date (if available)",
             "github_url": "GitHub URL if available else empty string",
             "demo_url": "Demo URL if available else empty string",
-            "contributions": ["Key contribution 1", "Key contribution 2"]
+            "contributions": ["Key contribution 1 (max 15 words)"]
         }}
     ],
     "fit_score": 75,
     "strengths": [
-        "Extract a key technical strength",
-        "Extract a leadership/soft skill strength",
-        "Extract an achievement-based strength"
+        "Key technical strength",
+        "Leadership/soft skill strength",
+        "Achievement-based strength"
     ],
     "areas_for_improvement": [
-        "Extract a missing skill or certification",
-        "Extract a formatting or content issue",
-        "Extract a career gap or missing detail"
+        "Missing skill or certification",
+        "Formatting or content issue",
+        "Career gap or missing detail"
     ],
     "recommended_role": "Best matching job role",
     "recommendation_reason": "1-sentence reason based on certifications/experience (e.g. Based on AWS certifications and 8+ years cloud experience)",
@@ -230,62 +260,66 @@ Extract the following information carefully:
     "experience_raw": ["Full experience text"]
 }}
 
-For skill_proficiency: estimate a percentage (50-99) for each skill based on how prominently and frequently it appears in the resume. Group each skill into one of: "Programming Languages", "Cloud Technologies", "Databases", "AI/ML & GenAI", "DevOps Tools", "Frameworks", or "Other". Include 8-16 skills max.
+Instructions for conciseness:
+- Limit latest_3_experiences to maximum 3 experiences, and limit responsibilities to max 2 items of max 15 words each.
+- Limit projects to maximum 3 projects, and limit contributions to max 1 item of max 15 words.
+- For skill_proficiency: estimate a percentage (50-99) for each skill based on how prominently and frequently it appears in the resume. Group each skill into one of: "Programming Languages", "Cloud Technologies", "Databases", "AI/ML & GenAI", "DevOps Tools", "Frameworks", or "Other". Include 8-12 skills max.
 
 Resume Text:
-{resume_text[:PROMPT_CHARS]}
+{text_to_send}
 
 Return ONLY the JSON object."""
 
-    try:
-        logger.info("Calling Groq API (%s)…", LLM_MODEL)
-        response = _get_client().chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=3000,
-
-        )
-
-        raw = response.choices[0].message.content.strip()
-        raw = re.sub(r"```json\s*", "", raw)
-        raw = re.sub(r"```\s*", "", raw)
-
-        parsed: dict = json.loads(raw)
-
-        # Defaults for optional arrays
-        if not parsed.get("strengths"):
-            parsed["strengths"] = [
-                "Professional experience in relevant field",
-                "Technical skills alignment",
-                "Good communication skills",
-            ]
-
-        if not parsed.get("areas_for_improvement"):
-            parsed["areas_for_improvement"] = [
-                "Add more quantifiable achievements",
-                "Include relevant certifications",
-                "Improve resume formatting",
-            ]
-
-        # Role fallback
-        if not parsed.get("current_role") or parsed.get("current_role") == "Professional":
-            role_match = re.search(
-                r"(?:Senior|Lead|Principal)?\s*"
-                r"(?:Software|Full Stack|Data|Product|Project|Cloud|DevOps)\s*"
-                r"(?:Engineer|Developer|Architect|Analyst|Manager)",
-                resume_text,
-                re.IGNORECASE,
+        try:
+            logger.info("Calling Groq API (%s) Attempt %d with %d chars…", LLM_MODEL, attempt, len(text_to_send))
+            response = _get_client().chat.completions.create(
+                model=LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=3000,
             )
-            if role_match:
-                parsed["current_role"] = role_match.group(0).strip()
 
-        parsed["resume_truncated"] = resume_truncated
-        return parsed
+            raw = response.choices[0].message.content.strip()
+            raw = re.sub(r"```json\s*", "", raw)
+            raw = re.sub(r"```\s*", "", raw)
 
-    except Exception as exc:
-        logger.error("LLM API error: %s", exc)
-        return generate_fallback_data(resume_text)
+            parsed: dict = json.loads(raw)
+
+            # Defaults for optional arrays
+            if not parsed.get("strengths"):
+                parsed["strengths"] = [
+                    "Professional experience in relevant field",
+                    "Technical skills alignment",
+                    "Good communication skills",
+                ]
+
+            if not parsed.get("areas_for_improvement"):
+                parsed["areas_for_improvement"] = [
+                    "Add more quantifiable achievements",
+                    "Include relevant certifications",
+                    "Improve resume formatting",
+                ]
+
+            # Role fallback
+            if not parsed.get("current_role") or parsed.get("current_role") == "Professional":
+                role_match = re.search(
+                    r"(?:Senior|Lead|Principal)?\s*"
+                    r"(?:Software|Full Stack|Data|Product|Project|Cloud|DevOps)\s*"
+                    r"(?:Engineer|Developer|Architect|Analyst|Manager)",
+                    resume_text,
+                    re.IGNORECASE,
+                )
+                if role_match:
+                    parsed["current_role"] = role_match.group(0).strip()
+
+            parsed["resume_truncated"] = resume_truncated
+            return parsed
+
+        except Exception as exc:
+            logger.warning("LLM API attempt %d failed: %s", attempt, exc)
+            if attempt == len(attempt_limits):
+                logger.error("All attempts to query LLM failed. Returning fallback data.")
+                return generate_fallback_data(resume_text)
 
 
 # ---------------------------------------------------------------------------
