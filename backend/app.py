@@ -268,19 +268,28 @@ UNPROFESSIONAL_KEYWORDS = {
     'some school': 35,
     'some college': 35,
     'need job': 30,
+    'freefire': 25,
+    'netflix': 20,
+    'tiktok': 25,
+    'pubg': 25,
+    'facebook': 20,
+    'chicken dinner': 30,
 }
 
 def is_unprofessional_resume(resume_text):
-    """Check if resume is clearly unprofessional"""
-    resume_lower = resume_text.lower()
-    strong_indicators = [
-        'bored', 'bored at home', 'please hire', 'whatsapp', 'instagram',
-        'gaming', 'sleeping', 'timepass', "don't remember", 'some school'
-    ]
-    for indicator in strong_indicators:
-        if indicator in resume_lower:
-            return True
-    return False
+    """Check if resume is clearly unprofessional using refined scoring logic"""
+    text_lower = resume_text.lower()
+    score = 0
+    for keyword, penalty in UNPROFESSIONAL_KEYWORDS.items():
+        if keyword in ['whatsapp', 'facebook', 'instagram', 'youtube']:
+            # Ignore URL paths or social links
+            url_pattern = rf"https?://[^\s]*{keyword}|{keyword}\.com|@[^\s]*{keyword}"
+            if re.search(url_pattern, text_lower):
+                continue
+        pattern = rf"\b{re.escape(keyword)}\b"
+        if re.search(pattern, text_lower):
+            score += penalty
+    return score > 50
 
 
 # ============================================================
