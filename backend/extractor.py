@@ -11,7 +11,7 @@ def extract_text_from_pdf(file_path):
         
         for page_num in range(len(pdf)):
             page = pdf[page_num]
-            page_text = page.get_text()
+            page_text = page.get_text()  # type: ignore
             if page_text and page_text.strip():
                 text += page_text + "\n"
         
