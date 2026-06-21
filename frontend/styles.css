@@ -177,12 +177,14 @@ body {
 }
 
 #themeToggleCheckbox:checked + .icon--moon,
-#themeToggleResultsCheckbox:checked + .icon--moon {
+#themeToggleResultsCheckbox:checked + .icon--moon,
+#themeToggleLiveEditCheckbox:checked + .icon--moon {
   transform: rotate(360deg) scale(0);
 }
 
 #themeToggleCheckbox:checked ~ .icon--sun,
-#themeToggleResultsCheckbox:checked ~ .icon--sun {
+#themeToggleResultsCheckbox:checked ~ .icon--sun,
+#themeToggleLiveEditCheckbox:checked ~ .icon--sun {
   transition-delay: 200ms;
   transform: scale(1) rotate(360deg);
 }
@@ -3918,46 +3920,121 @@ body.results-open #themeToggleContainer {
     color: var(--danger);
 }
 
+/* Live Edit Theme Toggle Container */
+.live-edit-theme-toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.live-edit-theme-toggle-container .toggle {
+    box-shadow: var(--shadow-xs);
+    background-color: var(--bg-surface-alt);
+    width: 32px;
+    height: 32px;
+}
+
+.live-edit-theme-toggle-container .toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* --- Live Edit Tabs Navigation --- */
+.live-edit-tabs {
+    display: flex;
+    background: var(--bg-surface-alt);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none; /* Hide scrollbar for Firefox */
+}
+
+.live-edit-tabs::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for Chrome/Safari */
+}
+
+.edit-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: all var(--transition);
+}
+
+.edit-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] .edit-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.edit-tab-btn.active {
+    color: var(--navy);
+    border-bottom-color: var(--navy);
+}
+
+[data-theme="dark"] .edit-tab-btn.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+
 .live-edit-sections-wrapper {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
 }
 
 /* Premium Scrollbars */
-.live-edit-sections-wrapper::-webkit-scrollbar,
+.edit-section-body::-webkit-scrollbar,
 .preview-scroll-container::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-.live-edit-sections-wrapper::-webkit-scrollbar-track,
+.edit-section-body::-webkit-scrollbar-track,
 .preview-scroll-container::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.live-edit-sections-wrapper::-webkit-scrollbar-thumb,
+.edit-section-body::-webkit-scrollbar-thumb,
 .preview-scroll-container::-webkit-scrollbar-thumb {
     background: var(--border-strong);
     border-radius: 3px;
 }
 
-.live-edit-sections-wrapper::-webkit-scrollbar-thumb:hover,
+.edit-section-body::-webkit-scrollbar-thumb:hover,
 .preview-scroll-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
 
 /* Edit Section Cards */
 .edit-section-card {
+    display: none;
     background: var(--bg-page);
     border: 1px solid var(--border);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
     flex-shrink: 0;
+    flex-direction: column;
+    height: 100%;
+}
+
+.edit-section-card.active {
+    display: flex;
 }
 
 .edit-section-header {
@@ -3967,6 +4044,7 @@ body.results-open #themeToggleContainer {
     padding: 14px 20px;
     background: var(--bg-surface-alt);
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .edit-section-header h3 {
@@ -3986,6 +4064,8 @@ body.results-open #themeToggleContainer {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 /* Form Controls */
@@ -4807,6 +4887,101 @@ body.results-open #themeToggleContainer {
     border-color: var(--gold);
     color: var(--navy-dark);
     background: var(--gold);
+}
+
+/* Universal close button styling in the project */
+.close-results,
+.close-preview,
+.close-batch-results,
+.preview-close,
+.skill-modal-close,
+.live-edit-close-btn {
+    border: 1px solid var(--border) !important;
+    color: var(--text-secondary) !important;
+    border-radius: var(--radius, 8px) !important;
+    background: transparent !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition) !important;
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+}
+
+/* Adjust size for action bar close results which is slightly larger (38px) in original styling */
+.results-action-bar .close-results {
+    width: 38px !important;
+    height: 38px !important;
+}
+
+.close-results:hover,
+.close-preview:hover,
+.close-batch-results:hover,
+.preview-close:hover,
+.skill-modal-close:hover,
+.live-edit-close-btn:hover {
+    background: rgba(220, 38, 38, 0.1) !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+}
+
+/* Green highlight effect on hover for Customize / Edit buttons */
+#previewEditSkillsBtn:hover,
+#skillEditBtn:hover {
+    color: #6cbe45 !important;
+    border-color: #6cbe45 !important;
+    background: rgba(108, 190, 69, 0.08) !important;
+}
+#previewEditSkillsBtn:hover i,
+#skillEditBtn:hover i {
+    color: #6cbe45 !important;
+}
+
+/* Live Edit Preview Header button with premium boundary */
+.preview-header-btn {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: var(--radius, 8px);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    box-shadow: var(--shadow-xs);
+}
+
+.preview-header-btn:hover {
+    color: #6cbe45;
+    border-color: #6cbe45;
+    background: rgba(108, 190, 69, 0.08);
+}
+
+/* Sizing overrides for Live Edit close button and theme toggle */
+.live-edit-close-btn {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 24px !important;
+}
+
+.live-edit-theme-toggle-container .toggle {
+    width: 44px !important;
+    height: 44px !important;
+}
+
+.live-edit-theme-toggle-container .toggle svg {
+    width: 24px !important;
+    height: 24px !important;
 }
 
 

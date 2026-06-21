@@ -7,6 +7,7 @@ const resultsSection = document.getElementById('resultsSection');
 const closeResults = document.getElementById('closeResults');
 const themeToggle = document.getElementById('themeToggleCheckbox');
 const themeToggleResults = document.getElementById('themeToggleResultsCheckbox');
+const themeToggleLiveEdit = document.getElementById('themeToggleLiveEditCheckbox');
 const downloadBtn = document.getElementById('downloadBtn');
 const includeFitScoreCheckbox = document.getElementById('includeFitScoreCheckbox');
 const includeBestSuitedRoleCheckbox = document.getElementById('includeBestSuitedRoleCheckbox');
@@ -33,7 +34,7 @@ function initTheme() {
 
 function updateThemeButton(theme) {
     const isDark = theme === 'dark';
-    [themeToggle, themeToggleResults].forEach(checkbox => {
+    [themeToggle, themeToggleResults, themeToggleLiveEdit].forEach(checkbox => {
         if (checkbox) {
             checkbox.checked = isDark;
         }
@@ -223,6 +224,8 @@ let _skillModalResponse = null;   // full analyze response
 let _selectedSkills     = [];     // currently selected skill objects
 let _allSkills          = [];     // all skill objects from API
 let _editableProfile    = null;   // cloned profile for Live Edit mode
+let _cameFromPreview     = false;  // tracks if Live Edit was opened from the Preview Modal
+let _originalAiFitScore  = null;   // stores the original AI-calculated fit score
 
 function getApiUrl() {
     const isProduction = window.location.hostname &&
@@ -233,6 +236,22 @@ function getApiUrl() {
     return isProduction
         ? '/api'
         : (window.location.hostname ? `http://${window.location.hostname}:5000/api` : 'http://127.0.0.1:5000/api');
+}
+
+function formatCertification(c) {
+    if (!c) return '';
+    if (typeof c === 'object') {
+        const cName = c.name || c.title || c.certification_name || '';
+        const cOrg = c.organization || c.authority || c.issuer || c.org || '';
+        const cYear = c.year || c.date || '';
+        let val = cName;
+        if (cOrg) val += ` from ${cOrg}`;
+        if (cYear) val += ` (${cYear})`;
+        return val.trim();
+    }
+    const s = String(c || '');
+    if (s === '[object Object]') return '';
+    return s;
 }
 
 // Lock UI to prevent multiple submissions
@@ -375,6 +394,7 @@ async function uploadResume() {
             // Store response for later use in /api/generate
             _skillModalResponse = data;
             _skillModalData     = data.data;
+            _originalAiFitScore = data.data && data.data.fit_score !== undefined ? data.data.fit_score : 85;
             _skillModalAnalysis = data.gap_analysis;
             _selectedSkills     = (data.recommended_skills || []).slice(0, 7);
 
@@ -582,6 +602,7 @@ function setupSkillModal() {
     const editBtn = document.getElementById('skillEditBtn');
     if (editBtn) {
         editBtn.addEventListener('click', () => {
+            _cameFromPreview = false;
             openLiveEditModal();
         });
     }
@@ -1166,10 +1187,13 @@ function displayResults(data) {
         const certList = document.getElementById('certificationsList');
         certList.innerHTML = '';
         certifications.forEach(cert => {
-            const certSpan = document.createElement('span');
-            certSpan.className = 'certification-item';
-            certSpan.textContent = cert;
-            certList.appendChild(certSpan);
+            const formatted = formatCertification(cert);
+            if (formatted) {
+                const certSpan = document.createElement('span');
+                certSpan.className = 'certification-item';
+                certSpan.textContent = formatted;
+                certList.appendChild(certSpan);
+            }
         });
     }
     
@@ -1743,15 +1767,17 @@ themeToggle.addEventListener('change', toggleTheme);
 if (themeToggleResults) {
     themeToggleResults.addEventListener('change', toggleTheme);
 }
+if (themeToggleLiveEdit) {
+    themeToggleLiveEdit.addEventListener('change', toggleTheme);
+}
 if (downloadBtn) {
     downloadBtn.addEventListener('click', handlePreviewDownloadClick);
 }
 if (previewEditSkillsBtn) {
     previewEditSkillsBtn.addEventListener('click', () => {
+        _cameFromPreview = true;
         closePreview();
-        if (_skillModalResponse) {
-            openSkillModal(_skillModalResponse.recommended_skills || [], _skillModalResponse.all_skills || []);
-        }
+        openLiveEditModal();
     });
 }
 closeResults.addEventListener('click', closeResultsHandler);
@@ -1964,6 +1990,7 @@ async function recalculateRoleFit(newRole) {
             if (result.success) {
                 _skillModalResponse.fit_score = result.fit_score;
                 _skillModalResponse.data.fit_score = result.fit_score;
+                _originalAiFitScore = result.fit_score;
                 _skillModalResponse.skill_gap = result.skill_gap;
                 _skillModalResponse.job_role = newRole;
                 _skillModalResponse.data.job_role = newRole;
@@ -2131,6 +2158,7 @@ function closeOriginalResumePreview() {
     const modal = document.getElementById('originalResumePreviewModal');
     if (modal) {
         modal.style.display = 'none';
+        modal.style.zIndex = '';
         document.body.style.overflow = 'hidden'; // Keep body scroll locked for results page
     }
 }
@@ -2274,18 +2302,7 @@ function openLiveEditModal() {
         if (!Array.isArray(_editableProfile.certifications)) {
             _editableProfile.certifications = [_editableProfile.certifications];
         }
-        _editableProfile.certifications = _editableProfile.certifications.map(c => {
-            if (c && typeof c === 'object') {
-                const cName = c.name || c.title || c.certification_name || '';
-                const cOrg = c.organization || c.authority || c.issuer || c.org || '';
-                const cYear = c.year || c.date || '';
-                let val = cName;
-                if (cOrg) val += ` from ${cOrg}`;
-                if (cYear) val += ` (${cYear})`;
-                return val.trim();
-            }
-            return String(c || '');
-        }).filter(Boolean);
+        _editableProfile.certifications = _editableProfile.certifications.map(formatCertification).filter(Boolean);
     } else {
         _editableProfile.certifications = [];
     }
@@ -2311,6 +2328,13 @@ function openLiveEditModal() {
     document.getElementById('editFitScore').value = fitScore;
     document.getElementById('editFitScoreVal').textContent = fitScore + '%';
     
+    // Display original AI score note
+    const originalScore = _originalAiFitScore !== null ? _originalAiFitScore : ((_skillModalData && _skillModalData.fit_score !== undefined) ? _skillModalData.fit_score : 85);
+    const aiScoreNote = document.getElementById('aiScoreNote');
+    if (aiScoreNote) {
+        aiScoreNote.textContent = `Original AI Fit Score: ${originalScore}%`;
+    }
+    
     // Render all subcards
     renderEditSkills();
     renderEditExperience();
@@ -2330,8 +2354,16 @@ function openLiveEditModal() {
 function closeLiveEditModal() {
     document.getElementById('liveEditModal').style.display = 'none';
     document.body.style.overflow = 'auto';
-    document.getElementById('skillModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    if (_cameFromPreview) {
+        const modal = document.getElementById('previewModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    } else {
+        document.getElementById('skillModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function renderEditSkills() {
@@ -2715,11 +2747,12 @@ function renderLivePreview() {
     const certs = data.certifications || [];
     let certsHtml = '';
     certs.slice(0, 4).forEach(cert => {
-        if (!cert) return;
+        const formatted = formatCertification(cert);
+        if (!formatted) return;
         certsHtml += `
             <div class="preview-bullet-item">
                 <span class="preview-bullet"></span>
-                <span class="preview-bullet-text">${escapeHtml(cert)}</span>
+                <span class="preview-bullet-text">${escapeHtml(formatted)}</span>
             </div>
         `;
     });
@@ -2875,6 +2908,34 @@ function renderLivePreview() {
 }
 
 function setupLiveEditModal() {
+    // Tabs switcher
+    const tabButtons = document.querySelectorAll('.live-edit-tabs .edit-tab-btn');
+    const tabCards = document.querySelectorAll('.live-edit-sections-wrapper .edit-section-card');
+    
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.getAttribute('data-tab');
+            
+            // Toggle active classes on tab buttons
+            tabButtons.forEach(b => {
+                if (b === btn) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
+            
+            // Toggle active classes on cards
+            tabCards.forEach(card => {
+                if (card.getAttribute('data-tab-content') === targetTab) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+        });
+    });
+
     const closeBtn = document.getElementById('liveEditCloseBtn');
     if (closeBtn) {
         closeBtn.addEventListener('click', closeLiveEditModal);
@@ -2888,6 +2949,22 @@ function setupLiveEditModal() {
     const saveBtn = document.getElementById('liveEditSaveBtn');
     if (saveBtn) {
         saveBtn.addEventListener('click', saveLiveEditChanges);
+    }
+    
+    const liveEditPreviewInputBtn = document.getElementById('liveEditPreviewInputBtn');
+    if (liveEditPreviewInputBtn) {
+        liveEditPreviewInputBtn.addEventListener('click', () => {
+            const originalResumePreviewModal = document.getElementById('originalResumePreviewModal');
+            if (originalResumePreviewModal) {
+                originalResumePreviewModal.style.zIndex = '6000';
+            }
+            previewOriginalUploadedFile();
+        });
+    }
+    
+    const liveEditPreviewOutputBtn = document.getElementById('liveEditPreviewOutputBtn');
+    if (liveEditPreviewOutputBtn) {
+        liveEditPreviewOutputBtn.addEventListener('click', saveLiveEditChanges);
     }
     
     // Sliders & Simple Inputs event bindings
@@ -3096,7 +3173,7 @@ async function triggerGenerateResumeFromEdit() {
         const editedTitle = document.getElementById('editTitle')?.value?.trim() || '';
         const API_URL = getApiUrl();
         
-        const response = await fetch(`${API_URL}/api/generate-from-edit`, {
+        const response = await fetch(`${API_URL}/generate-from-edit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
