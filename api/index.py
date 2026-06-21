@@ -461,6 +461,7 @@ def analyze_resume_step():
             "success": True,
             "message": "Resume analyzed successfully",
             "data": structured_data,
+            "extracted_text": extracted_text,
             "recommended_skills": top7,
             "all_skills": skill_proficiency,
             "fit_score": structured_data.get("fit_score"),
@@ -474,6 +475,49 @@ def analyze_resume_step():
         print(f"ERROR in /api/analyze: {e}")
         print(traceback.format_exc())
         return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
+
+@app.route("/api/recalculate-fit", methods=["POST"])
+def recalculate_fit_score():
+    try:
+        body = request.get_json(force=True) or {}
+        structured_data = body.get("structured_data", {})
+        job_role = body.get("job_role", "")
+        extracted_text = body.get("extracted_text", "")
+        job_description = body.get("job_description", "")
+
+        if not job_role:
+            return jsonify({"error": "Job role is required."}), 400
+
+        role_requirements = get_role_requirements(job_role)
+        if not isinstance(role_requirements, dict):
+            role_requirements = {}
+
+        if job_description:
+            jd_data = extract_skills_from_jd(job_description)
+            if jd_data and isinstance(jd_data, dict):
+                for field in ["required_skills", "preferred_skills", "certifications", "keywords"]:
+                    if jd_data.get(field):
+                        extracted_list = ensure_list_of_strings(jd_data[field])
+                        role_requirements[field] = list(set(
+                            ensure_list_of_strings(role_requirements.get(field, [])) + extracted_list
+                        ))
+                if jd_data.get("min_experience_years"):
+                    role_requirements["min_experience_years"] = jd_data["min_experience_years"]
+
+        fit_score = calculate_role_fit_score(structured_data, role_requirements, extracted_text)
+        skill_gap = build_skill_gap_report(structured_data, role_requirements, extracted_text)
+
+        return jsonify({
+            "success": True,
+            "fit_score": fit_score,
+            "skill_gap": skill_gap
+        }), 200
+
+    except Exception as e:
+        print(f"ERROR in /api/recalculate-fit: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Recalculation failed: {str(e)}"}), 500
 
 
 @app.route("/api/generate", methods=["POST"])
@@ -701,6 +745,7 @@ def upload_resume():
             "success": True,
             "message": "Resume processed successfully",
             "data": structured_data,
+            "extracted_text": extracted_text,
             "image_base64": image_base64,
             "fit_score": structured_data.get("fit_score"),
             "job_role": job_role if job_role else None,

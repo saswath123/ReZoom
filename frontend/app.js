@@ -995,6 +995,11 @@ function displayResults(data) {
             scoreCard.insertBefore(roleLabel, scoreCard.firstChild);
         }
     }
+
+    const cardSelect = document.getElementById('cardJobRoleSelect');
+    if (cardSelect && jobRole) {
+        cardSelect.value = jobRole;
+    }
     
     const scoreStatus = document.getElementById('scoreStatus');
     if (scoreStatus) {
@@ -1769,12 +1774,31 @@ async function setupRoleSelector() {
         const res = await fetch(`${API_URL}/job-roles`);
         if (res.ok) {
             const data = await res.json();
+            const cardSelect = document.getElementById('cardJobRoleSelect');
+            
+            select.innerHTML = '';
+            if (cardSelect) cardSelect.innerHTML = '';
+            
             (data.roles || []).forEach(role => {
-                const opt = document.createElement('option');
-                opt.value = role;
-                opt.textContent = role;
-                select.appendChild(opt);
+                const opt1 = document.createElement('option');
+                opt1.value = role;
+                opt1.textContent = role;
+                select.appendChild(opt1);
+                
+                if (cardSelect) {
+                    const opt2 = document.createElement('option');
+                    opt2.value = role;
+                    opt2.textContent = role;
+                    cardSelect.appendChild(opt2);
+                }
             });
+            
+            if (cardSelect) {
+                const optCustom = document.createElement('option');
+                optCustom.value = '__custom__';
+                optCustom.textContent = 'Custom Role...';
+                cardSelect.appendChild(optCustom);
+            }
         }
     } catch(e) {
         console.warn('Could not load job roles:', e);
@@ -1838,6 +1862,152 @@ async function setupRoleSelector() {
         if (jdCount) jdCount.textContent = `${len} / 4000 characters`;
         if (len > 4000) jdTextarea.value = jdTextarea.value.slice(0, 4000);
     });
+
+    const cardSelect = document.getElementById('cardJobRoleSelect');
+    if (cardSelect) {
+        cardSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            const customRoleWrapper = document.getElementById('cardCustomRoleWrapper');
+            if (customRoleWrapper) {
+                if (val === '__custom__') {
+                    customRoleWrapper.style.display = 'block';
+                    const input = document.getElementById('cardCustomRoleInput');
+                    if (input) input.focus();
+                } else {
+                    customRoleWrapper.style.display = 'none';
+                    // Auto-recalculate if it's a predefined role and no JD is added yet
+                    const jdWrapper = document.getElementById('cardJdTextareaWrapper');
+                    if (jdWrapper && jdWrapper.style.display === 'none') {
+                        recalculateRoleFit(val);
+                    }
+                }
+            }
+        });
+    }
+
+    // Collapsible JD toggle button
+    const cardJdToggleBtn = document.getElementById('cardJdToggleBtn');
+    const cardJdWrapper = document.getElementById('cardJdTextareaWrapper');
+    if (cardJdToggleBtn && cardJdWrapper) {
+        cardJdToggleBtn.addEventListener('click', () => {
+            const isHidden = cardJdWrapper.style.display === 'none';
+            cardJdWrapper.style.display = isHidden ? 'block' : 'none';
+            cardJdToggleBtn.innerHTML = isHidden 
+                ? '<i class="fas fa-minus"></i> Remove Job Description' 
+                : '<i class="fas fa-plus"></i> Add Job Description';
+            cardJdToggleBtn.classList.toggle('active', isHidden);
+            if (isHidden) {
+                const textarea = document.getElementById('cardJdTextarea');
+                if (textarea) textarea.focus();
+            } else {
+                const textarea = document.getElementById('cardJdTextarea');
+                if (textarea) textarea.value = '';
+            }
+        });
+    }
+
+    // Check fit score button click listener
+    const cardCheckFitBtn = document.getElementById('cardCheckFitBtn');
+    if (cardCheckFitBtn) {
+        cardCheckFitBtn.addEventListener('click', () => {
+            let targetRole = '';
+            const val = cardSelect?.value;
+            if (val === '__custom__') {
+                targetRole = document.getElementById('cardCustomRoleInput')?.value?.trim() || '';
+            } else {
+                targetRole = val || '';
+            }
+            
+            if (!targetRole) {
+                showNotification('Please specify a job role', 'warning');
+                return;
+            }
+            
+            recalculateRoleFit(targetRole);
+        });
+    }
+}
+
+async function recalculateRoleFit(newRole) {
+    if (!_skillModalResponse) return;
+    
+    const scoreCircle = document.getElementById('scoreCircle');
+    const scoreValue = document.querySelector('.score-value');
+    if (scoreValue) scoreValue.textContent = '...';
+    
+    try {
+        const API_URL = getApiUrl();
+        const response = await fetch(`${API_URL}/recalculate-fit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                structured_data: _skillModalResponse.data,
+                job_role: newRole,
+                extracted_text: _skillModalResponse.extracted_text || '',
+                job_description: document.getElementById('jobDescriptionInput')?.value || ''
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                _skillModalResponse.fit_score = result.fit_score;
+                _skillModalResponse.data.fit_score = result.fit_score;
+                _skillModalResponse.skill_gap = result.skill_gap;
+                _skillModalResponse.job_role = newRole;
+                _skillModalResponse.data.job_role = newRole;
+                
+                updateScoreCircle(result.fit_score);
+                
+                const scoreStatus = document.getElementById('scoreStatus');
+                if (scoreStatus) {
+                    if (result.fit_score >= 80) {
+                        scoreStatus.textContent = 'Excellent Match';
+                        scoreStatus.className = 'score-status clickable-verdict status-excellent';
+                    } else if (result.fit_score >= 60) {
+                        scoreStatus.textContent = 'Good Potential';
+                        scoreStatus.className = 'score-status clickable-verdict status-good';
+                    } else {
+                        scoreStatus.textContent = 'Room for Growth';
+                        scoreStatus.className = 'score-status clickable-verdict status-low';
+                    }
+                }
+                
+                const fitScoreReasonText = document.getElementById('fitScoreReasonText');
+                if (fitScoreReasonText) {
+                    const recommendationReason = _skillModalResponse.data.recommendation_reason || '';
+                    if (recommendationReason) {
+                        fitScoreReasonText.textContent = recommendationReason;
+                    } else {
+                        if (result.fit_score >= 80) {
+                            fitScoreReasonText.textContent = `The candidate represents an excellent match for the position of ${newRole} based on key strengths, relevant experience, and role alignment.`;
+                        } else if (result.fit_score >= 60) {
+                            fitScoreReasonText.textContent = `The candidate has good potential for the position of ${newRole}, with solid foundation skills though there are minor areas of growth or alignment gaps.`;
+                        } else {
+                            fitScoreReasonText.textContent = `The candidate requires significant skill development, certifications, or additional work experience to be fully suited for the position of ${newRole}.`;
+                        }
+                    }
+                }
+                
+                const scoreCard = document.getElementById('scoreCard');
+                const roleLabel = scoreCard?.querySelector('.score-role-label');
+                if (roleLabel) {
+                    roleLabel.innerHTML = `<i class="fas fa-crosshairs"></i> ${newRole}`;
+                }
+                
+                if (result.skill_gap) {
+                    displaySkillGapPanel(result.skill_gap, newRole);
+                }
+            }
+        } else {
+            if (scoreValue) scoreValue.textContent = _skillModalResponse.fit_score || 0;
+        }
+    } catch (err) {
+        console.error('Error recalculating role fit:', err);
+        if (scoreValue) scoreValue.textContent = _skillModalResponse.fit_score || 0;
+    }
 }
 
 document.addEventListener('keydown', (e) => {

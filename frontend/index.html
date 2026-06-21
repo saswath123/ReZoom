@@ -325,6 +325,33 @@
                                         <p class="tooltip-reason-text" id="fitScoreReasonText"></p>
                                     </div>
                                 </div>
+                                <div class="card-role-selector-wrapper">
+                                    <label for="cardJobRoleSelect">Target Job Role</label>
+                                    <select id="cardJobRoleSelect" class="card-role-dropdown">
+                                        <!-- populated dynamically -->
+                                    </select>
+                                    
+                                    <!-- Conditional Custom Role Input -->
+                                    <div class="card-custom-role-wrapper" id="cardCustomRoleWrapper" style="display: none;">
+                                        <input type="text" id="cardCustomRoleInput" class="card-role-input" placeholder="Specify custom role...">
+                                    </div>
+                                    
+                                    <!-- Collapsible Job Description Container -->
+                                    <div class="card-jd-toggle-wrapper">
+                                        <button type="button" class="card-jd-toggle-btn" id="cardJdToggleBtn">
+                                            <i class="fas fa-plus"></i> Add Job Description
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="card-jd-textarea-wrapper" id="cardJdTextareaWrapper" style="display: none;">
+                                        <textarea id="cardJdTextarea" class="card-jd-textarea" placeholder="Paste job description here to match skills..."></textarea>
+                                    </div>
+
+                                    <!-- Recalculate Button -->
+                                    <button type="button" id="cardCheckFitBtn" class="card-check-fit-btn">
+                                        <i class="fas fa-sync-alt"></i> Calculate Fit Score
+                                    </button>
+                                </div>
                             </div>
                             <div class="score-details">
                                 <p><i class="fas fa-check-circle"></i> <span id="strengthCount">0</span> Key Strengths</p>

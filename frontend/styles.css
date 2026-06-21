@@ -3656,4 +3656,180 @@ body.results-open #themeToggleContainer {
     color: #60a5fa;
 }
 
+/* ── Card Role Selector Styles ───────────────────────────────── */
+.card-role-selector-wrapper {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.card-role-selector-wrapper label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+}
+
+.card-role-dropdown {
+    width: 100%;
+    max-width: 220px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    text-align-last: center;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.card-role-dropdown:focus {
+    border-color: var(--navy);
+}
+
+[data-theme="dark"] .card-role-dropdown:focus {
+    border-color: var(--gold);
+}
+
+/* Custom Role and JD fields inside Fit Score card */
+.card-custom-role-wrapper {
+    width: 100%;
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.card-role-input {
+    width: 100%;
+    max-width: 220px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    text-align: center;
+    transition: border-color var(--transition);
+}
+
+.card-role-input:focus {
+    border-color: var(--navy);
+}
+
+[data-theme="dark"] .card-role-input:focus {
+    border-color: var(--gold);
+}
+
+.card-jd-toggle-wrapper {
+    margin-top: 8px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.card-jd-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--navy);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color var(--transition);
+}
+
+.card-jd-toggle-btn:hover {
+    color: var(--navy-light);
+}
+
+[data-theme="dark"] .card-jd-toggle-btn {
+    color: var(--gold);
+}
+
+[data-theme="dark"] .card-jd-toggle-btn:hover {
+    color: var(--gold-light);
+}
+
+.card-jd-textarea-wrapper {
+    width: 100%;
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.card-jd-textarea {
+    width: 100%;
+    max-width: 220px;
+    height: 80px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 11px;
+    resize: none;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.card-jd-textarea:focus {
+    border-color: var(--navy);
+}
+
+[data-theme="dark"] .card-jd-textarea:focus {
+    border-color: var(--gold);
+}
+
+.card-check-fit-btn {
+    width: 100%;
+    max-width: 220px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--navy);
+    color: var(--text-inverse);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background-color var(--transition), transform var(--transition);
+}
+
+.card-check-fit-btn:hover {
+    background: var(--navy-light);
+}
+
+.card-check-fit-btn:active {
+    transform: translateY(1px);
+}
+
+[data-theme="dark"] .card-check-fit-btn {
+    background: var(--gold);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .card-check-fit-btn:hover {
+    background: var(--gold-light);
+}
+
 
