@@ -91,7 +91,7 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    transition: background var(--transition-md), color var(--transition-md);
+    transition: background var(--transition-md), color var(--transition-md), zoom var(--transition-md);
 }
 
 /* ── Layout ──────────────────────────────────────────────── */

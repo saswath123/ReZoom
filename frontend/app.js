@@ -1,3 +1,42 @@
+// Dynamic UI Zoom Adjustment based on Screen Resolution and Viewport Width
+function updateDynamicZoom() {
+    const viewportWidth = window.innerWidth;
+    const screenWidth = window.screen.width;
+    
+    // On mobile / small tablet viewports (<= 1024px), we let standard responsive
+    // media queries handle the layout. Disable custom scaling.
+    if (viewportWidth <= 1024) {
+        if (document.body) {
+            document.body.style.zoom = "1";
+        }
+        return;
+    }
+    
+    // Determine reference width. If browser is resized, use viewportWidth.
+    // If maximized, use screenWidth to prevent fighting the browser's native zoom.
+    const refWidth = Math.min(viewportWidth, screenWidth);
+    
+    let scale = 1.0;
+    if (refWidth <= 1440) {
+        // For screens/viewports <= 1440px (14-inch laptops), scale between 0.9 and 1.0.
+        scale = 1.0 - (1440 - refWidth) * 0.0003;
+        scale = Math.max(0.9, scale);
+    } else {
+        // For larger monitors (24-inch, 32-inch), scale up to 1.35x.
+        scale = 1.0 + (refWidth - 1440) * 0.0003;
+        scale = Math.min(scale, 1.35);
+    }
+    
+    if (document.body) {
+        document.body.style.zoom = scale;
+    }
+}
+
+// Attach event listeners for resize and DOMContentLoaded
+window.addEventListener('resize', updateDynamicZoom);
+document.addEventListener('DOMContentLoaded', updateDynamicZoom);
+updateDynamicZoom();
+
 // DOM Elements
 const fileInput = document.getElementById('resumeFile');
 const uploadArea = document.getElementById('uploadArea');

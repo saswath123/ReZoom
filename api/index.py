@@ -84,7 +84,7 @@ def is_worst_resume(extracted_text):
     score = detect_unprofessional_score(extracted_text)
     return score > 50, score
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
 
 # Configuration for Vercel (use /tmp for temporary storage)
