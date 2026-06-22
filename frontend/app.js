@@ -2405,6 +2405,13 @@ function closeLiveEditModal() {
     }
 }
 
+function getOriginalAiPercentage(skillName) {
+    if (!skillName || !_skillModalResponse) return null;
+    const allSkills = _skillModalResponse.all_skills || [];
+    const match = allSkills.find(s => s.skill && s.skill.toLowerCase().trim() === skillName.toLowerCase().trim());
+    return match ? match.percentage : null;
+}
+
 function renderEditSkills() {
     const container = document.getElementById('editSkillsContainer');
     if (!container) return;
@@ -2414,15 +2421,57 @@ function renderEditSkills() {
     list.forEach((sp, idx) => {
         const row = document.createElement('div');
         row.className = 'edit-row skill-row';
+        
+        const originalPct = getOriginalAiPercentage(sp.skill);
+        const isOriginal = (originalPct !== null && (sp.percentage || 80) === originalPct);
+        
         row.innerHTML = `
             <input type="text" class="edit-skill-name" value="${escapeHtml(sp.skill || '')}" placeholder="Skill Name">
-            <input type="range" class="edit-skill-pct-slider" min="10" max="100" value="${sp.percentage || 80}">
-            <span class="edit-skill-pct-val">${sp.percentage || 80}%</span>
+            <div class="edit-skill-pct-slider-wrapper">
+                <input type="range" class="edit-skill-pct-slider" min="10" max="100" value="${sp.percentage || 80}">
+                ${originalPct ? `
+                <div class="ai-pct-marker" 
+                     style="left: calc(7px + ((${originalPct} - 10) / 90) * (100% - 14px) - 1px);"
+                     title="AI Initial Percentage: ${originalPct}%">
+                </div>
+                ` : ''}
+            </div>
+            <span class="edit-skill-pct-val ${isOriginal ? 'is-original' : ''}">${sp.percentage || 80}%</span>
             <button type="button" class="btn-delete-item" aria-label="Delete skill"><i class="fas fa-trash-alt"></i></button>
         `;
         
         row.querySelector('.edit-skill-name').addEventListener('input', (e) => {
-            _editableProfile.skill_proficiency[idx].skill = e.target.value;
+            const newName = e.target.value;
+            _editableProfile.skill_proficiency[idx].skill = newName;
+            
+            const wrapper = row.querySelector('.edit-skill-pct-slider-wrapper');
+            const label = row.querySelector('.edit-skill-pct-val');
+            if (wrapper) {
+                let marker = wrapper.querySelector('.ai-pct-marker');
+                const originalPct = getOriginalAiPercentage(newName);
+                const currentPct = _editableProfile.skill_proficiency[idx].percentage || 80;
+                
+                if (originalPct) {
+                    if (!marker) {
+                        marker = document.createElement('div');
+                        marker.className = 'ai-pct-marker';
+                        wrapper.appendChild(marker);
+                    }
+                    marker.style.left = `calc(7px + ((${originalPct} - 10) / 90) * (100% - 14px) - 1px)`;
+                    marker.title = `AI Initial Percentage: ${originalPct}%`;
+                    
+                    if (currentPct === originalPct) {
+                        label.classList.add('is-original');
+                    } else {
+                        label.classList.remove('is-original');
+                    }
+                } else {
+                    if (marker) {
+                        marker.remove();
+                    }
+                    label.classList.remove('is-original');
+                }
+            }
             renderLivePreview();
         });
         
@@ -2432,6 +2481,13 @@ function renderEditSkills() {
             const val = parseInt(e.target.value, 10);
             _editableProfile.skill_proficiency[idx].percentage = val;
             label.textContent = val + '%';
+            
+            const originalPct = getOriginalAiPercentage(_editableProfile.skill_proficiency[idx].skill);
+            if (originalPct !== null && val === originalPct) {
+                label.classList.add('is-original');
+            } else {
+                label.classList.remove('is-original');
+            }
             renderLivePreview();
         });
         

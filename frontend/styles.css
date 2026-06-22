@@ -4253,8 +4253,55 @@ body.results-open #themeToggleContainer {
     color: var(--text-primary);
 }
 
-.edit-row.skill-row .edit-skill-pct-slider {
+.edit-skill-pct-slider-wrapper {
     flex: 3;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.edit-skill-pct-slider-wrapper .edit-skill-pct-slider {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+.edit-skill-pct-slider-wrapper .edit-skill-pct-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--navy);
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+
+[data-theme="dark"] .edit-skill-pct-slider-wrapper .edit-skill-pct-slider::-webkit-slider-thumb {
+    background: var(--gold);
+}
+
+.edit-skill-pct-slider-wrapper .edit-skill-pct-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.edit-skill-pct-slider-wrapper .ai-pct-marker {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 12px;
+    background: var(--gold);
+    pointer-events: auto;
+    z-index: 5;
+}
+
+[data-theme="dark"] .edit-skill-pct-slider-wrapper .ai-pct-marker {
+    background: var(--gold-light);
 }
 
 .edit-row.skill-row .edit-skill-pct-val {
@@ -4262,6 +4309,11 @@ body.results-open #themeToggleContainer {
     font-weight: 600;
     min-width: 38px;
     text-align: right;
+    transition: color var(--transition);
+}
+
+.edit-row.skill-row .edit-skill-pct-val.is-original {
+    color: var(--success) !important;
 }
 
 .btn-delete-item {
