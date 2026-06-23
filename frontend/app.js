@@ -59,6 +59,7 @@ let currentPreviewImageUrl = null;
 let currentImageBlob = null;
 let currentPreviewFile = null;
 let isProcessing = false;
+let _previousModalOfPreview = null; // tracks which modal opened the preview modal
 
 // Role selection state
 let selectedJobRole = null;
@@ -489,6 +490,7 @@ function openSkillModal(recommended, all) {
 }
 
 function closeSkillModal() {
+    _previousModalOfPreview = 'resultsSection';
     document.getElementById('skillModal').style.display = 'none';
     document.body.style.overflow = 'auto';
 }
@@ -772,7 +774,7 @@ async function triggerGenerateResume() {
             currentPreviewImageUrl  = imageUrl;
 
             // Open the generated resume image in the preview modal
-            showPreview(imageUrl, imageBlob);
+            showPreview(imageUrl, imageBlob, 'skillModal');
         } else {
             throw new Error(genData.error || 'Image generation failed');
         }
@@ -1012,7 +1014,7 @@ window.viewBatchResume = function(index) {
         }
         const byteArray = new Uint8Array(byteNumbers);
         const imageBlob = new Blob([byteArray], { type: 'image/png' });
-        showPreview(imageUrl, imageBlob);
+        showPreview(imageUrl, imageBlob, 'batchSection');
     }
 };
 
@@ -1622,13 +1624,17 @@ function closeFilePreview() {
 }
 
 // Preview Modal Functions
-function showPreview(imageUrl, imageBlob) {
+function showPreview(imageUrl, imageBlob, sourceModal = null) {
     const modal = document.getElementById('previewModal');
     const previewImg = document.getElementById('previewImage');
     
     if (!modal || !previewImg) {
         showNotification('Preview not available', 'error');
         return;
+    }
+    
+    if (sourceModal) {
+        _previousModalOfPreview = sourceModal;
     }
     
     currentPreviewImageUrl = imageUrl;
@@ -1643,6 +1649,21 @@ function closePreview() {
     if (modal) {
         modal.style.display = 'none';
         document.body.style.overflow = 'auto';
+        
+        // Redirect to previous modal if applicable
+        if (_previousModalOfPreview === 'liveEditModal') {
+            const liveEdit = document.getElementById('liveEditModal');
+            if (liveEdit) {
+                liveEdit.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        } else if (_previousModalOfPreview === 'skillModal') {
+            const skillModal = document.getElementById('skillModal');
+            if (skillModal) {
+                skillModal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
     }
 }
 
@@ -1780,7 +1801,7 @@ async function generateDefaultResume() {
             currentImageBlob        = imageBlob;
             currentPreviewImageUrl  = imageUrl;
 
-            showPreview(imageUrl, imageBlob);
+            showPreview(imageUrl, imageBlob, 'resultsSection');
         } else {
             throw new Error(genData.error || 'Image generation failed');
         }
@@ -1793,7 +1814,7 @@ async function generateDefaultResume() {
 
 function handlePreviewDownloadClick() {
     if (currentImageUrl && currentImageBlob) {
-        showPreview(currentImageUrl, currentImageBlob);
+        showPreview(currentImageUrl, currentImageBlob, 'resultsSection');
     } else if (_skillModalResponse) {
         generateDefaultResume();
     } else {
@@ -2391,6 +2412,7 @@ function openLiveEditModal() {
 }
 
 function closeLiveEditModal() {
+    _previousModalOfPreview = 'resultsSection';
     document.getElementById('liveEditModal').style.display = 'none';
     document.body.style.overflow = 'auto';
     if (_cameFromPreview) {
@@ -3305,7 +3327,7 @@ async function triggerGenerateResumeFromEdit() {
             renderSkillModal();
             
             // Show preview modal
-            showPreview(imageUrl, imageBlob);
+            showPreview(imageUrl, imageBlob, 'liveEditModal');
             showNotification('Final resume report generated from custom edits', 'success');
         } else {
             throw new Error(genData.error || 'Image generation failed');
