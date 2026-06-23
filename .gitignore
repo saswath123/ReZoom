@@ -77,3 +77,13 @@ scratch/
 *.temp
 
 scratch/
+
+============================================
+#Test files 
+============================================
+test_dynamic_contact_layout.png
+test_poor.png
+test_prof_no_score.png
+test_prof_with_score.png
+test_resume.docx
+test_worst.png
